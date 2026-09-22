@@ -20,6 +20,7 @@ export type {
   ReaderApi,
   ReaderSlots,
   ReadingEvents,
+  TitleHit,
 } from './types.ts'
 
 export { createGitHubSource, type DocumentCache, type GitHubSourceOptions } from './content/github-source.ts'

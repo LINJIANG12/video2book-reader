@@ -95,7 +95,7 @@ async function main() {
       courses: courses.length,
       volumes: courses.reduce((n, c) => n + c.volumes.length, 0),
       notes: courses.reduce((n, c) => n + c.notes.length, 0),
-      subtitles: courses.reduce((n, c) => n + c.subtitleCount, 0),
+      subtitles: courses.reduce((n, c) => n + c.subtitles.length, 0),
       bytes: courses.reduce((n, c) => n + c.bytes, 0),
     },
     /** 性能基准与验收用：文件树中 size 最大的那一册（docs/03 §10.1 要求取最大者，不写死册名） */

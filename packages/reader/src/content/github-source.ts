@@ -13,7 +13,16 @@
  * 正文取数走回退链：jsDelivr → api contents → raw（每条都实测过可达性，见 docs/05）。
  */
 import { deriveCourses, parseRootReadme, toCourseSummary, type RootReadmeInfo, type TreeEntry } from './derive.ts'
-import type { ContentSource, CourseDetail, CourseId, CourseSummary, DocumentId, Manifest, ManifestCourse } from '../types.ts'
+import type {
+  ContentSource,
+  CourseDetail,
+  CourseId,
+  CourseSummary,
+  DocumentId,
+  Manifest,
+  ManifestCourse,
+  TitleHit,
+} from '../types.ts'
 
 export type DocumentCache = {
   /** expectedSize 来自文件树 / manifest；实现可用它判断记录是否已失效 */
@@ -146,13 +155,43 @@ export function createGitHubSource(opts: GitHubSourceOptions): ContentSource {
     async loadCourse(id: CourseId): Promise<CourseDetail> {
       const course = (await getCourses()).find((c) => c.id === id)
       if (!course) throw new Error(`没有这门课：${id}`)
-      return { ...toCourseSummary(course), documents: [...course.volumes, ...course.notes] }
+      return {
+        ...toCourseSummary(course),
+        documents: [...course.volumes, ...course.notes, ...course.subtitles],
+      }
+    },
+
+    /**
+     * 结构搜索：在已加载的课程结构里按标题过滤，**不发任何请求**。
+     * 结构本来就在内存里（文件树或 manifest），所以这是 O(课程数 × 产件数) 的纯内存扫描，
+     * 实测全库 1014 个产件在 1ms 量级——不需要索引，也不需要防抖之外的东西。
+     */
+    async searchTitles(query: string, signal?: AbortSignal): Promise<TitleHit[]> {
+      const q = query.trim().toLowerCase()
+      if (!q) return []
+
+      const hits: TitleHit[] = []
+      for (const course of await getCourses()) {
+        signal?.throwIfAborted()
+        if (course.title.toLowerCase().includes(q) || course.id.toLowerCase().includes(q)) {
+          hits.push({ courseId: course.id, courseTitle: course.title, kind: 'course', title: course.title })
+        }
+        for (const kind of ['volumes', 'notes', 'subtitles'] as const) {
+          for (const doc of course[kind]) {
+            if (doc.title.toLowerCase().includes(q)) {
+              hits.push({ courseId: course.id, courseTitle: course.title, documentId: doc.id, kind: doc.kind, title: doc.title })
+            }
+          }
+        }
+      }
+      return hits
     },
 
     async loadDocument(id: DocumentId, signal?: AbortSignal): Promise<string> {
-      // 期望大小来自已加载的结构（文件树 / manifest）——缓存靠它判断记录是否已失效
+      // 期望大小来自已加载的结构（文件树 / manifest）——缓存靠它判断记录是否已失效。
+      // 逐字稿也要查：它是只有 count 的那类产件，漏掉会让它的缓存永不失效。
       const expectedSize = (await getCourses())
-        .flatMap((c) => [...c.volumes, ...c.notes])
+        .flatMap((c) => [...c.volumes, ...c.notes, ...c.subtitles])
         .find((d) => d.id === id)?.size
 
       if (cache) {

@@ -29,10 +29,12 @@ export type CourseSummary = {
   direction?: string
   volumeCount: number
   noteCount: number
+  /** 逐字稿数量。列表只在 loadCourse 里给（书架不需要） */
   subtitleCount: number
 }
 
 export type CourseDetail = CourseSummary & {
+  /** 册 + 笔记 + 逐字稿，按 kind 区分（调用方自己分组） */
   documents: DocumentSummary[]
 }
 
@@ -44,7 +46,9 @@ export type ManifestCourse = {
   direction: string
   volumes: DocumentSummary[]
   notes: DocumentSummary[]
-  subtitleCount: number
+  /** 逐字稿：`P01_01. xxx_clean.txt`。v1 只列出与下载，不提供阅读视图（docs/00 §11 D2） */
+  subtitles: DocumentSummary[]
+  /** 该课程全部产件的字节数（册 + 笔记 + 逐字稿） */
   bytes: number
 }
 
@@ -59,10 +63,27 @@ export type Manifest = {
 
 // ---- 内容源接缝 ----
 
+/**
+ * 结构搜索的一条命中。
+ * **只搜标题，不搜正文**——跨库全文检索需要构建期倒排索引，是另一件事（docs/00 §11 D3，v2）。
+ * 标题全在已加载的结构里，所以这个查询**零网络、零索引成本**。
+ */
+export type TitleHit = {
+  courseId: CourseId
+  /** 课程展示名，用于在结果里标注出处（搜到一册但不知道是哪门课是很糟的体验） */
+  courseTitle: string
+  /** 命中课程本身时没有 documentId */
+  documentId?: DocumentId
+  kind: DocumentKind | 'course'
+  title: string
+}
+
 export type ContentSource = {
   listCourses(): Promise<CourseSummary[]>
   loadCourse(id: CourseId): Promise<CourseDetail>
   loadDocument(id: DocumentId, signal?: AbortSignal): Promise<string>
+  /** 在已加载的课程结构里搜标题。实现不得为此发起网络请求 */
+  searchTitles(query: string, signal?: AbortSignal): Promise<TitleHit[]>
 }
 
 // ---- 阅读状态事件（阅读器只发事件，不管存哪；docs/03 §9.3）----
@@ -75,9 +96,16 @@ export type ReadingEvents = {
 
 // ---- 导航原语（docs/03 §9.4）----
 
+/**
+ * 大纲节点。**四层**：册标题 → 章(H2) → 节(H3) → 小节(H4)。
+ *
+ * 为什么下探到 H4：左栏要的是 Typora 那种可折叠的层级树，
+ * 只到 H3 会让长章的节挤成一条平的长列表（实测一册有 39 个 H3）。
+ * H4 默认折叠，不主动撑开（docs/03 §9.2）。
+ */
 export type OutlineNode = {
   title: string
-  level: 1 | 2 | 3
+  level: 1 | 2 | 3 | 4
   blockId: string
   children: OutlineNode[]
 }
