@@ -72,45 +72,159 @@ function toText(node: ElementContent | Element): string {
   return ''
 }
 
-/** 是否形如 `**标签**：正文`；返回标签名 */
-function detectLabel(blockquote: Element): string | undefined {
-  const p = blockquote.children.find((c): c is Element => c.type === 'element' && c.tagName === 'p')
-  if (!p) return undefined
-  const first = p.children[0]
+/** 段首是不是 `**标签**：…`。是则剥掉标签与紧跟的冒号，返回标签与剩余节点（原地不改输入） */
+function takeLabel(seg: ElementContent[]): { label: string; rest: ElementContent[] } | undefined {
+  const first = seg[0]
   if (!first || first.type !== 'element' || first.tagName !== 'strong') return undefined
   const label = toText(first).replace(/[\s\u200B-\u200D\uFEFF]/g, '')
   if (!label || label.length > MAX_LABEL_LEN) return undefined
-  // 加粗之后必须是冒号（全角或半角），否则不是标签
-  const rest = toText({ type: 'element', tagName: 'x', properties: {}, children: p.children.slice(1) } as Element)
-  return /^\s*[：:]/.test(rest) ? label : undefined
+
+  const rest = seg.slice(1)
+  const head = rest[0]
+  if (!head || head.type !== 'text' || !/^\s*[：:]/.test(head.value)) return undefined
+  return { label, rest: [{ type: 'text', value: head.value.replace(/^\s*[：:]\s*/, '') }, ...rest.slice(1)] }
 }
 
-/** 去掉 `**标签**：` 这一段，只留正文（避免既显示胶囊标签又显示加粗造成重复） */
-function stripLabel(blockquote: Element): void {
-  const p = blockquote.children.find((c): c is Element => c.type === 'element' && c.tagName === 'p')
-  if (!p) return
-  p.children = p.children.slice(1)
-  const first = p.children[0]
-  if (first && first.type === 'text') {
-    first.value = first.value.replace(/^\s*[：:]\s*/, '')
+/** 去掉节点序列开头的空白（`<br>` 之后 mdast-util-to-hast 总会多跟一个 `"\n"` 文本节点，它是格式不是内容） */
+function trimStart(nodes: ElementContent[]): ElementContent[] {
+  const out = nodes.slice()
+  while (out.length > 0) {
+    const node = out[0]
+    if (node.type !== 'text') break
+    if (node.value.trim() === '') {
+      out.shift()
+      continue
+    }
+    out[0] = { type: 'text', value: node.value.replace(/^\s+/, '') }
+    break
   }
+  return out
+}
+
+/** 去掉行尾的空白（行尾双空格是 Markdown 的硬换行语法，不该显示出来） */
+function trimEnd(nodes: ElementContent[]): ElementContent[] {
+  const out = nodes.slice()
+  while (out.length > 0) {
+    const node = out[out.length - 1]
+    if (node.type !== 'text') break
+    if (node.value.trim() === '') {
+      out.pop()
+      continue
+    }
+    out[out.length - 1] = { type: 'text', value: node.value.replace(/\s+$/, '') }
+    break
+  }
+  return out
+}
+
+/**
+ * 把 children 按 `<br>`（Markdown 的行尾双空格）切段，并去掉段首空白。
+ *
+ * **段首那个 `"\n"` 一定要去掉**：mdast-util-to-hast 把硬换行渲染成 `<br>` + 一个 `"\n"` 文本节点，
+ * 不去掉的话第二段起就以文本开头，标签识别会全部失败——这个坑实测踩过。
+ */
+function splitByBreak(children: ElementContent[]): ElementContent[][] {
+  const segments: ElementContent[][] = []
+  let current: ElementContent[] = []
+  for (const child of children) {
+    if (child.type === 'element' && child.tagName === 'br') {
+      segments.push(current)
+      current = []
+    } else {
+      current.push(child)
+    }
+  }
+  segments.push(current)
+  return segments.map(trimStart)
+}
+
+/**
+ * 把「一个段落里的多行 `**标签**：值`」解构成元信息行。
+ *
+ * ## 为什么需要它（实测，不是假想）
+ *
+ * 册首元信息在源文件里是**一个引用块 + 若干行 `**标签**：值`，用行尾双空格分行**：
+ *
+ *   > **所属课程**：[完结] 2026 南京大学 "操作系统原理" (蒋炎岩)␠␠
+ *   > **本册内容**：操作系统导论与 AI 时代的系统视角␠␠
+ *   > **覆盖范围**：P01上 ~ P02下（共 2 讲 / 4 章 / 185 分钟音频）␠␠
+ *
+ * 而**旧实现只看第一个段落、只剥掉第一个 `<strong>`**，于是：
+ *   · 第一行「所属课程」被做成胶囊标签 ✓
+ *   · 其余各行的 `**模块跨度**：` 原样留在正文里，退化成普通的加粗文字 ✗
+ *
+ * 全库实测：**4 行 102 处 + 5 行 56 处 = 158 处，正好每一册一处**，
+ * 且没有任何其他 kind 出现多行（所以这里不需要按 kind 设门槛）。
+ *
+ * 返回 `undefined` 表示"不是元信息表"，交回原有的单行逻辑处理——
+ * 首段不带标签、或只有一行时都走那条路，行为与改动前完全一致。
+ */
+function parseMetaRows(paragraph: Element): { label: string; value: ElementContent[] }[] | undefined {
+  const segments = splitByBreak(paragraph.children as ElementContent[])
+  const rows: { label: string; value: ElementContent[] }[] = []
+
+  for (const seg of segments) {
+    const taken = takeLabel(seg)
+    if (taken) {
+      rows.push({ label: taken.label, value: taken.rest })
+    } else if (rows.length > 0) {
+      // 不构成新标签的段（例如值里自带换行）→ 并进上一行，用 <br> 还原换行，
+      // 而不是整块退回旧行为——否则一处异常会让整册的元信息又变回半渲染
+      const last = rows[rows.length - 1]
+      last.value.push({ type: 'element', tagName: 'br', properties: {}, children: [] }, ...seg)
+    } else {
+      return undefined
+    }
+  }
+
+  return rows.length >= 2 ? rows : undefined
 }
 
 export function rehypeCallouts() {
   return (tree: Root): void => {
     visit(tree, 'element', (node: Element) => {
       if (node.tagName !== 'blockquote') return
-      const label = detectLabel(node)
-      if (!label) return
+      const p = node.children.find((c): c is Element => c.type === 'element' && c.tagName === 'p')
+      if (!p) return
 
-      const kind = kindOf(label)
-      stripLabel(node)
+      // 多行元信息表 → 解构成 <dl>，由 CSS 排成两列。**不设 data-label**：
+      // 标签已经逐行在 dt 里，再挂一个胶囊会重复，而且只显示第一行会误导。
+      const rows = parseMetaRows(p)
+      if (rows) {
+        const kind = kindOf(rows[0].label)
+        node.tagName = 'div'
+        node.properties = {
+          ...node.properties,
+          className: ['callout', `callout-${kind}`, 'callout-rows'],
+          'data-callout': kind,
+        }
+        // 直接用 dt/dd 作为 dl 的子节点（不套 div）——因为 hast→React 的组件表把
+        // 所有 div 都映射成 Callout，内层 div 会被误当成嵌套卡片渲染
+        p.tagName = 'dl'
+        p.properties = {}
+        p.children = rows.flatMap(({ label, value }) => [
+          { type: 'element', tagName: 'dt', properties: {}, children: [{ type: 'text', value: label }] },
+          { type: 'element', tagName: 'dd', properties: {}, children: trimEnd(value) },
+        ])
+        return
+      }
+
+      // 单行：`> **标签**：正文`
+      const taken = takeLabel(splitByBreak(p.children as ElementContent[])[0] ?? [])
+      if (!taken) return
+
+      const first = p.children[0]
+      if (first && first.type === 'element' && first.tagName === 'strong') {
+        p.children = p.children.slice(1)
+        const head = p.children[0]
+        if (head && head.type === 'text') head.value = head.value.replace(/^\s*[：:]\s*/, '')
+      }
       node.tagName = 'div'
       node.properties = {
         ...node.properties,
-        className: ['callout', `callout-${kind}`],
-        'data-callout': kind,
-        'data-label': label,
+        className: ['callout', `callout-${kindOf(taken.label)}`],
+        'data-callout': kindOf(taken.label),
+        'data-label': taken.label,
       }
     })
   }

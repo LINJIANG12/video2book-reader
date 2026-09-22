@@ -127,7 +127,27 @@ for (const c of CASES) {
   check(new Set(blockIds).size === blockIds.length, '块 id 全局唯一')
 
   // 大纲
-  check(result.outline.length === doc.chapters.length, '大纲条数 = 章数', `${result.outline.length} vs ${doc.chapters.length}`)
+  // 结构自 2026-09 起是**四层树**：册标题(H1) 是唯一的根，章(H2) 挂在它下面，节/小节再往下。
+  // 旧断言是「大纲条数 = 章数」（那时只有两层平铺），改成按 level 数。
+  const flatOutline = (list, out = []) => {
+    for (const n of list) {
+      out.push(n)
+      flatOutline(n.children, out)
+    }
+    return out
+  }
+  const outlineAll = flatOutline(result.outline)
+  const chapterNodes = outlineAll.filter((n) => n.level === 2)
+  check(chapterNodes.length === doc.chapters.length, '大纲里的章数 = 章数', `${chapterNodes.length} vs ${doc.chapters.length}`)
+  check(result.outline.every((n) => n.level === 1 || n.level === 2), '顶层只有册标题与章', `顶层 ${result.outline.length} 个`)
+
+  // 册标题进大纲（H1）—— 左栏要能一眼看出"在读哪一册"
+  const rootTitle = result.outline.find((n) => n.level === 1)
+  check(Boolean(rootTitle), '册标题（H1）进入大纲作为根', rootTitle?.title?.slice(0, 24) ?? '（没有）')
+
+  // 小节（H4）也要进大纲：左栏要的是 Typora 那种可下探的树
+  const h4Nodes = outlineAll.filter((n) => n.level === 4)
+  check(h4Nodes.length > 0, '小节（H4）已进入大纲', `${h4Nodes.length} 个`)
 
   // 学习要素卡片
   const callouts = all.filter((e) => e.properties?.['data-callout'])
@@ -136,6 +156,18 @@ for (const c of CASES) {
   const kinds = new Set(callouts.map((e) => e.properties['data-callout']))
   check(callouts.every((e) => e.properties.className?.includes('callout')), '每个卡片都带样式类')
   console.log(`     分类分布：${[...kinds].join(' / ') || '（无）'}`)
+
+  // 多行册首元信息必须解构成 label/value 表（全库 158 册每册一处；旧实现只认第一行）
+  const rowTables = callouts.filter((e) => e.properties.className?.includes('callout-rows'))
+  check(rowTables.length === 1, '册首元信息解构成一张行表', `${rowTables.length} 张`)
+  if (rowTables.length === 1) {
+    const dl = (rowTables[0].children ?? []).find((c) => c.type === 'element' && c.tagName === 'dl')
+    const dts = dl ? (dl.children ?? []).filter((c) => c.tagName === 'dt') : []
+    const dds = dl ? (dl.children ?? []).filter((c) => c.tagName === 'dd') : []
+    check(dts.length >= 2 && dts.length === dds.length, '行表每行都是 label/value 成对', `${dts.length} 行`)
+    check(!rowTables[0].properties['data-label'], '行表不再挂单个胶囊标签（否则只显示第一行）')
+    console.log(`     元信息行：${dts.map((d) => d.children?.[0]?.value).join(' / ')}`)
+  }
 
   // 卡片的标签文字里不该再残留 **加粗**（避免既显示胶囊又显示加粗）
   const leakedBold = callouts.filter((e) =>
@@ -161,7 +193,7 @@ for (const c of CASES) {
   }
 
   // 章节标题里不该出现代码围栏的内容
-  const bogusHeadings = result.outline.filter((o) => /##|```/.test(o.title))
+  const bogusHeadings = outlineAll.filter((o) => /##|```/.test(o.title))
   check(bogusHeadings.length === 0, '大纲标题里没有围栏残留')
 }
 

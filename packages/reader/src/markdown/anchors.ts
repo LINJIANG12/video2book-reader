@@ -12,12 +12,18 @@
  */
 import type { Element, ElementContent, Root } from 'hast'
 import type { DocPartRole } from '../model/split-document.ts'
+import type { OutlineNode } from '../types.ts'
 
 export type BlockAnchorResult = {
   /** blockId → 它属于哪一章、在哪条标题路径下 */
   blockIndex: Map<string, { chapterIndex: number; sectionPath: string[] }>
-  /** 目录条目。**只收正文章**——册首/导读/小结的 H2 不进 TOC，否则目录里会混入非章节项 */
-  outline: { title: string; level: 2 | 3; blockId: string; children: { title: string; level: 3; blockId: string }[] }[]
+  /**
+   * 目录树。**只收册首的 H1 与正文各章**——导读/小结不进目录，否则目录里会混入非章节项。
+   * 册标题作为唯一的根，各章挂在它下面（**部件是逐个解析的，所以要在部件之间保留挂载栈**）。
+   */
+  outline: OutlineNode[]
+  /** 跨部件的大纲挂载栈。调用方不用读它，`createAnchorResult` 初始化 */
+  stack: OutlineNode[]
 }
 
 function toText(node: ElementContent | Element): string {
@@ -35,19 +41,18 @@ export function rehypeBlockAnchors(opts: {
   ordinal: number
   chapterIndex: number
   chapterTitle: string
-  /** 只有正文章贡献目录条目 */
+  /** 只有册首与正文章贡献目录条目 */
   role: DocPartRole
   result: BlockAnchorResult
 }) {
   const { ordinal, chapterIndex, chapterTitle, role, result } = opts
-  const inOutline = role === 'chapter'
+  const inOutline = role === 'chapter' || role === 'head'
 
   return (tree: Root): void => {
     let blockNo = 0
     /** 当前所在的 H3 / H4 标题 */
     let h3: string | undefined
     let h4: string | undefined
-    let lastTop: { title: string; level: 2 | 3; blockId: string; children: { title: string; level: 3; blockId: string }[] } | undefined
 
     for (const node of tree.children) {
       if (node.type !== 'element') continue
@@ -64,38 +69,26 @@ export function rehypeBlockAnchors(opts: {
           node.properties = { ...node.properties, id, 'data-block-id': id }
         }
 
-        if (level <= 3 && inOutline) {
-          const title = toText(node).trim()
-          if (level === 2) {
-            h3 = undefined
-            h4 = undefined
-            lastTop = { title, level: 2, blockId: id, children: [] }
-            result.outline.push(lastTop)
-          } else {
-            // H3：挂到最近的 H2 下（没有 H2 时自建一个顶层项）
-            if (!lastTop || lastTop.level !== 2) {
-              lastTop = { title: chapterTitle, level: 2, blockId: id, children: [] }
-              result.outline.push(lastTop)
-            }
-            h3 = title
-            h4 = undefined
-            lastTop.children.push({ title, level: 3, blockId: id })
-          }
-        } else if (level <= 3) {
-          // 非正文章部件：仍要维护 sectionPath（块索引要用），但不进 TOC
-          const title = toText(node).trim()
-          if (level === 2) {
-            h3 = undefined
-            h4 = undefined
-          } else {
-            h3 = title
-            h4 = undefined
-          }
+        // sectionPath 用（所有 role 都要维护：blockIndex 靠它反查「这是第几章的第几节」）
+        if (level === 2) {
+          h3 = undefined
+          h4 = undefined
+        } else if (level === 3) {
+          h3 = toText(node).trim()
+          h4 = undefined
         } else if (level === 4) {
-          // H4 进 sectionPath，但**不进 TOC**（避免目录过长，docs/03 §9.2）
           h4 = toText(node).trim()
         }
-        // H5/H6 不参与
+
+        // 目录树：用挂载栈按层级挂靠。栈保留在 result 里，因为**册首与各章是分别解析的**，
+        // 册标题（H1）在第一个部件里出现，后面的章要挂到它下面。
+        if (inOutline && level <= 4) {
+          const entry: OutlineNode = { title: toText(node).trim(), level: level as 1 | 2 | 3 | 4, blockId: id, children: [] }
+          while (result.stack.length > 0 && result.stack[result.stack.length - 1].level >= level) result.stack.pop()
+          const parent = result.stack[result.stack.length - 1]
+          ;(parent ? parent.children : result.outline).push(entry)
+          result.stack.push(entry)
+        }
 
         result.blockIndex.set(id, {
           chapterIndex,

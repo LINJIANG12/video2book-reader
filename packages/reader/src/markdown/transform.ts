@@ -26,7 +26,7 @@ import { rehypeBlockAnchors, type BlockAnchorResult } from './anchors.ts'
 import type { DocPart } from '../model/split-document.ts'
 
 export function createAnchorResult(): BlockAnchorResult {
-  return { blockIndex: new Map(), outline: [] }
+  return { blockIndex: new Map(), outline: [], stack: [] }
 }
 
 /** 把一个部件转成 hast，并把块索引与大纲写进 `result` */

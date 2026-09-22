@@ -161,15 +161,19 @@ export function CodeBlock({ children }: { children?: ReactNode }) {
 }
 
 /** 学习要素卡片。分类由 rehype 插件给出（data-callout），这里只负责呈现 */
-export function Callout({ children, ...props }: { children?: ReactNode } & Record<string, unknown>) {
+export function Callout({ children, className, ...props }: { children?: ReactNode; className?: string } & Record<string, unknown>) {
   const kind = (props['data-callout'] as string) ?? 'generic'
   const label = (props['data-label'] as string) ?? ''
+  // **保留插件给的 className**（它带着 callout-rows 这类附加类）。
+  // 早先这里直接用模板串重建 `callout callout-${kind}`，把传入的类整个丢了——
+  // 于是多行元信息表的 callout-rows 在 hast 里存在、到 DOM 里消失，样式也就没落上。
+  const klass = typeof className === 'string' && className ? className : `callout callout-${kind}`
   // 题干/解析/答案默认折叠——它把「读」变成「先自测再读」（docs/03 §4.2 纪律 3）
   const collapsible = kind === 'question' && /题干|解析|答案/.test(label)
 
   if (collapsible) {
     return (
-      <details className={`callout callout-${kind}`} data-callout={kind}>
+      <details className={klass} data-callout={kind}>
         <summary>{label}</summary>
         <div className="callout-body">{children}</div>
       </details>
@@ -177,7 +181,7 @@ export function Callout({ children, ...props }: { children?: ReactNode } & Recor
   }
 
   return (
-    <div className={`callout callout-${kind}`} data-callout={kind}>
+    <div className={klass} data-callout={kind}>
       {label && <span className="callout-label">{label}</span>}
       <div className="callout-body">{children}</div>
     </div>

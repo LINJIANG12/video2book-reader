@@ -6,9 +6,17 @@
  *   提示卡分类色相不超过 4 个 · 动效只动 transform / opacity · 滚动跳转不做平滑动画（长文档会失去位置感）
  */
 
-.reader-root,
-.reader,
-.shelf {
+/**
+ * 主题变量的**唯一定义点**（docs/03 §8）。
+ *
+ * 挂在 `:root` 而不是组件根上，有两个理由：
+ *   1. 页面背景（body）在组件树之外，也要用同一套色——否则暗色模式下页面底色与内容底色不一致
+ *   2. 之前挂在 `.reader-root` 上时，壳层（顶栏 / 课程页）只能用 `var(--fg-2, #52525b)` 这种
+ *      **亮色兜底值**，于是暗色模式下课程页拿到的是浅色体系的文字色（实测的既有缺陷）
+ *
+ * 壳层与插件**不得重定义这些变量**，只允许读取——两处定义必然漂移。
+ */
+:root {
   --bg: #fafafa;
   --layer: #ffffff;
   --layer-2: #f4f4f5;
@@ -19,19 +27,12 @@
   --accent: #0f766e; /* 唯一的强调色（青绿，饱和度 < 80%） */
   --warn: #b45309; /* 唯一的警示色 —— 只给「易错点/注意」 */
   --radius: 6px;
-  --mono: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace;
+  --mono: ui-monospace, "Cascadia Code", "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace;
   --body-max: 46em;
-
-  color: var(--fg);
-  font-family: system-ui, "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif;
-  font-size: 16px;
-  line-height: 1.85;
 }
 
 @media (prefers-color-scheme: dark) {
-  .reader-root,
-  .reader,
-  .shelf {
+  :root {
     --bg: #18181b; /* off-black，不用 #000 */
     --layer: #27272a;
     --layer-2: #212124;
@@ -44,23 +45,36 @@
   }
 }
 
-/* ---- 阅读器骨架 ---- */
-
-.reader {
-  display: grid;
-  grid-template-columns: 15rem minmax(0, 1fr);
-  gap: 2rem;
-  height: 100%;
-  overflow-y: auto;
-  background: var(--bg);
-  scroll-behavior: auto; /* 长文档不做平滑滚动 */
+/* 应用根：承载基础排版，色值全部继承 :root */
+.app-root {
+  color: var(--fg);
+  font-family: system-ui, "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+  /* 中文比拉丁需要更多行距：1.9 而不是 1.85。字号 17px 是为了贴近 Typora 的阅读视图 */
+  font-size: 17px;
+  line-height: 1.9;
 }
 
+/* ---- 阅读器骨架 ----
+   左栏与正文**各自滚动**（不是整页滚动 + sticky 左栏）：
+   这样两栏都有确定高度，左栏不必再用 `max-height: 100vh` 去猜顶栏占了多高。 */
+.reader {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  /* 15rem：中文标题很长，再窄就只剩十来个字可看（大纲项是省略显示的） */
+  grid-template-columns: 15rem minmax(0, 1fr);
+  gap: 2rem;
+  background: var(--bg);
+}
+
+/* 正文**左对齐**（不居中）：居中的话会在左栏右侧留下大片空白，
+   一行 46em 的宽度本身已经定死了行长，再居中只是把留白堆在两边 */
 .reader-body {
+  overflow-y: auto;
   max-width: var(--body-max);
-  margin: 0 auto;
-  padding: 3rem 2rem 8rem;
+  padding: 2.5rem 3rem 8rem 0;
   min-width: 0;
+  scroll-behavior: auto; /* 长文档不做平滑滚动 */
 }
 
 .reader-status {
@@ -97,14 +111,14 @@
 /* ---- 正文排版 ---- */
 
 .reader-body h1 {
-  font-size: 1.6rem;
-  line-height: 1.4;
-  margin: 0 0 1rem;
+  font-size: 1.75rem;
+  line-height: 1.35;
+  margin: 0 0 1.2rem;
 }
 
 /* 章标题：上间距 > 下间距（归属感，docs/03 §8.2） */
 .reader-body h2 {
-  font-size: 1.3rem;
+  font-size: 1.35rem;
   margin: 3.5rem 0 1rem;
   padding-top: 1.5rem;
   border-top: 1px solid var(--line);
@@ -116,12 +130,12 @@
 }
 
 .reader-body h3 {
-  font-size: 1.08rem;
+  font-size: 1.15rem;
   margin: 2.25rem 0 0.75rem;
 }
 
 .reader-body h4 {
-  font-size: 0.98rem;
+  font-size: 1rem;
   color: var(--fg-2);
   margin: 1.75rem 0 0.5rem;
 }
@@ -285,6 +299,40 @@
   color: var(--fg-3);
 }
 
+/**
+ * 多行册首元信息 → 两列网格卡。
+ *
+ * 全库实测：158 册**每一册**的册首都长这样（4 行 102 处 + 5 行 56 处），而旧实现只把第一行
+ * 做成胶囊、其余退化成正文加粗文字。这里给完整边框 + label/value 两列，把它还原成一块信息板。
+ * 特异性写成 `.callout.callout-rows` 是为了稳定压过上面的 `.callout-meta`（同为一个类时靠文档顺序，太脆）。
+ */
+.callout.callout-rows {
+  background: var(--layer);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--line);
+  padding: 0.85em 1.1em;
+}
+
+.callout-rows dl {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 0.35em 1.25em;
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.75;
+}
+
+.callout-rows dt {
+  color: var(--fg-3);
+  white-space: nowrap;
+}
+
+.callout-rows dd {
+  margin: 0;
+  min-width: 0;
+  color: var(--fg-2);
+}
+
 .callout-figure,
 .callout-generic {
   border-left-color: var(--line);
@@ -391,79 +439,241 @@ details.callout[open] > summary {
   font-size: 0.8rem;
 }
 
-/* ---- 目录（章级 TOC + scroll-spy）---- */
+/* ---- 左栏：大纲 / 搜索两个 tab（与 Typora 的「文件 / 大纲」同一模式）---- */
 
-.toc {
-  position: sticky;
-  top: 0;
-  align-self: start;
-  max-height: 100vh;
+.rail {
   overflow-y: auto;
-  padding: 3rem 0 2rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 2.5rem 0 2rem 1.25rem;
   border-right: 1px solid var(--line);
   font-size: 0.85rem;
 }
 
-.toc-item,
-.toc-sub {
-  display: block;
-  width: 100%;
-  text-align: left;
-  padding: 0.3em 0.5em;
-  border: none;
-  border-radius: 4px;
-  background: none;
-  color: var(--fg-2);
-  font: inherit;
-  cursor: pointer;
-  transition: opacity 0.12s;
+.rail-tabs {
+  display: flex;
+  gap: 0.15rem;
+  padding-right: 0.75rem;
 }
 
-.toc-item:hover,
-.toc-sub:hover {
+.rail-tab {
+  flex: 1;
+  padding: 0.3em 0.5em;
+  font: inherit;
+  font-size: 0.8rem;
+  color: var(--fg-3);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+}
+
+.rail-tab:hover {
+  color: var(--fg-2);
+}
+
+.rail-tab.active {
+  color: var(--fg);
+  border-bottom-color: var(--accent);
+}
+
+.rail-panel {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 0.5rem;
+}
+
+.rail-panel-off {
+  display: none;
+}
+
+.rail-empty {
+  margin: 0.5rem 0;
+  color: var(--fg-3);
+  font-size: 0.78rem;
+  line-height: 1.7;
+  padding-right: 0.75rem;
+}
+
+/* 窄屏下的抽屉开关：宽屏隐藏 */
+.rail-toggle {
+  display: none;
+}
+
+/* ---- 大纲树：册标题 → 章 → 节 → 小节 ---- */
+
+.outline,
+.outline-children {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.outline-children {
+  padding-left: 0.55rem;
+}
+
+.outline-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.05rem;
+}
+
+.outline-twisty {
+  flex: none;
+  width: 0.9rem;
+  padding: 0.35em 0;
+  font-size: 0.6rem;
+  line-height: 1.4;
+  color: var(--fg-3);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.outline-link {
+  flex: 1;
+  min-width: 0;
+  padding: 0.28em 0.4em;
+  font: inherit;
+  text-align: left;
+  color: var(--fg-2);
+  background: none;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  /* 长标题省略而不是换行——目录一换行就失去「能一眼扫完」的价值 */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.outline-link:hover {
   background: var(--layer-2);
 }
 
-.toc-item.active {
+.outline-link.active {
   color: var(--accent);
   font-weight: 600;
 }
 
-.toc-sub {
-  padding-left: 1.2em;
-  font-size: 0.8rem;
+/* 层级用**字重 + 缩进**区分，不靠亮度：
+   结构层（册 / 章）加粗、内容层（节 / 小节）常规——这样"哪里是一章的开头"一眼可见。
+   早先只让 L3 小 6% 是看不出来的。 */
+.outline-l1 > .outline-row > .outline-link {
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.outline-l2 > .outline-row > .outline-link {
+  font-weight: 600;
+  color: var(--fg-2);
+}
+
+.outline-l3 > .outline-row > .outline-link {
+  font-size: 0.94em;
+}
+
+.outline-l4 > .outline-row > .outline-link {
+  font-size: 0.88em;
   color: var(--fg-3);
 }
 
-.toc-sub.active {
-  color: var(--accent);
+/* ---- 册内搜索 ---- */
+
+.rail-search {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-right: 0.75rem;
 }
 
-.toc-chapter {
-  margin-bottom: 0.4em;
+.rail-search-input {
+  font: inherit;
+  font-size: 0.82rem;
+  padding: 0.4em 0.55em;
+  color: inherit;
+  background: var(--layer);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
 }
 
-.toc-sections {
-  display: none;
+.rail-search-input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
 }
 
-/* 只在宽屏显示二级条目，避免目录本身变成负担 */
-@media (min-width: 1100px) {
-  .toc-sections {
-    display: block;
-  }
+.rail-search-count {
+  margin: 0;
+  font-size: 0.74rem;
+  color: var(--fg-3);
+  font-variant-numeric: tabular-nums;
 }
 
-/* ---- 书架 ---- */
+.rail-hits {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.rail-hit {
+  display: block;
+  width: 100%;
+  padding: 0.45em 0.5em;
+  font: inherit;
+  font-size: 0.78rem;
+  text-align: left;
+  color: var(--fg-2);
+  background: none;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.rail-hit:hover {
+  background: var(--layer-2);
+}
+
+.rail-hit-where {
+  display: block;
+  margin-bottom: 0.1em;
+  color: var(--fg-3);
+  font-size: 0.72rem;
+}
+
+.rail-hit-text {
+  display: block;
+  line-height: 1.55;
+}
+
+.rail-hit mark {
+  color: inherit;
+  background: color-mix(in srgb, var(--accent) 24%, transparent);
+  border-radius: 2px;
+}
+
+/* 跳过去的那个块：用 outline 标出（不影响布局，所以不会把滚动目标挤走） */
+.reader-body .search-hit {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  outline: 2px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  outline-offset: 3px;
+  border-radius: 3px;
+}
+
+/* ---- 书架：索引式单栏列表 ---- */
 
 .shelf {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
   background: var(--bg);
-  min-height: 100%;
   padding: 3rem 2rem 6rem;
 }
 
 .shelf-head {
-  max-width: 60rem;
+  max-width: 54rem;
   margin: 0 auto 2rem;
 }
 
@@ -472,81 +682,186 @@ details.callout[open] > summary {
   margin: 0 0 0.35rem;
 }
 
-.shelf-head p {
+.shelf-stats {
   margin: 0;
   color: var(--fg-3);
   font-size: 0.85rem;
 }
 
+/* 表头与每行共用同一套列宽，数字才能竖着对齐 */
+.shelf-table {
+  max-width: 54rem;
+  margin: 0 auto;
+}
+
+.shelf-columns,
+.shelf-open {
+  display: grid;
+  grid-template-columns: 3px 2.4rem minmax(0, 1fr) 2.6rem 2.8rem 3.4rem 4rem;
+  align-items: center;
+  gap: 0.9rem;
+}
+
+.shelf-columns {
+  padding: 0 1rem 0.5rem 0;
+  border-bottom: 1px solid var(--line);
+  color: var(--fg-3);
+  font-size: 0.72rem;
+}
+
+/* 前两个空格是为了让表头与数据列对齐（竖线列 + 序号列各占一格）——
+   不要用 grid-column 去合并它们，那会把后面所有表头整体挤歪一格 */
+
 .shelf-list {
   list-style: none;
-  max-width: 60rem;
-  margin: 0 auto;
+  margin: 0;
   padding: 0;
-  display: grid;
-  gap: 0.75rem;
-  grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
+}
+
+.shelf-list li + li {
+  border-top: 1px solid var(--line);
 }
 
 .shelf-open {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
   width: 100%;
-  padding: 1rem 1.1rem;
+  padding: 1.05rem 0.5rem 1.05rem 0;
   text-align: left;
   font: inherit;
   color: inherit;
-  background: var(--layer);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
+  background: none;
+  border: none;
   cursor: pointer;
-  transition: transform 0.12s, border-color 0.12s;
 }
 
 .shelf-open:hover {
-  border-color: var(--fg-3);
+  background: var(--layer-2);
 }
 
-.shelf-open:active {
-  transform: scale(0.995);
+.shelf-open:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 
-.shelf-title {
-  font-weight: 600;
-}
-
-.shelf-direction {
-  color: var(--fg-2);
-  font-size: 0.85rem;
-}
-
-.shelf-meta {
-  color: var(--fg-3);
-  font-size: 0.78rem;
-}
-
-.shelf-progress {
-  display: block;
-  height: 3px;
-  margin-top: 0.4rem;
-  border-radius: 2px;
+/* 左竖线：阅读进度，也是正文 callout 的视觉语法 —— 未读时只是一条安静的灰线 */
+.shelf-rail {
+  align-self: stretch;
+  position: relative;
+  min-height: 2.4rem;
   background: var(--line);
+  border-radius: 2px;
   overflow: hidden;
 }
 
-.shelf-bar {
-  display: block;
-  height: 100%;
+.shelf-rail-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
   background: var(--accent);
-  transition: width 0.2s;
 }
 
-@media (max-width: 860px) {
-  .reader {
-    grid-template-columns: 1fr;
+.shelf-ord {
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  color: var(--fg-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.shelf-name {
+  min-width: 0;
+}
+
+.shelf-title {
+  display: block;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.shelf-direction {
+  display: block;
+  color: var(--fg-2);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.shelf-num {
+  text-align: right;
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-2);
+}
+
+.shelf-dim {
+  color: var(--fg-3);
+}
+
+@media (max-width: 720px) {
+  /* 窄屏只留序号、课程名与册数：其余计数在册列表里都看得到 */
+  .shelf-columns,
+  .shelf-open {
+    grid-template-columns: 3px 2rem minmax(0, 1fr) 2.6rem;
   }
-  .toc {
+
+  .shelf-columns > span:nth-child(n + 5),
+  .shelf-open > .shelf-num:nth-child(n + 5) {
     display: none;
+  }
+}
+
+/* ---- 窄屏：左栏收成抽屉 ----
+   旧实现是 < 860px 直接 display:none，等于手机上根本没有大纲与册内搜索。
+   现在改成左下角一个开关，点开左栏覆盖在正文上。 */
+@media (max-width: 900px) {
+  .reader {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .rail {
+    position: fixed;
+    z-index: 10;
+    top: 0;
+    left: 0;
+    width: min(20rem, 84vw);
+    padding: 2.5rem 0 2rem 1rem;
+    background: var(--bg);
+    box-shadow: 1px 0 0 var(--line);
+    transform: translateX(-100%);
+    transition: transform 0.16s ease-out;
+  }
+
+  .reader[data-rail-open] .rail {
+    transform: none;
+  }
+
+  .reader-body {
+    padding: 1.5rem 1.25rem 6rem;
+  }
+
+  .rail-toggle {
+    display: block;
+    position: fixed;
+    z-index: 11;
+    bottom: 1rem;
+    left: 1rem;
+    padding: 0.4em 0.8em;
+    font: inherit;
+    font-size: 0.8rem;
+    color: var(--fg-2);
+    background: var(--layer);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    cursor: pointer;
+  }
+
+  .rail-toggle[aria-expanded='true'] {
+    left: min(20rem, 84vw);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rail {
+    transition: none;
   }
 }
