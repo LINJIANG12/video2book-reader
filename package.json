@@ -13,6 +13,7 @@
     "check:split": "node scripts/check-split.mjs",
     "check:render": "node scripts/check-render.mjs",
     "check": "pnpm check:split && pnpm check:render",
+    "verify:boundaries": "node scripts/verify-boundaries.mjs",
     "stream-server": "node scripts/stream-echo-server.mjs",
     "icon": "node scripts/make-icon.mjs",
     "dev:web": "pnpm --filter @app/reader-web dev",
