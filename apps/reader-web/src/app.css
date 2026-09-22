@@ -1,0 +1,159 @@
+/**
+ * 应用外壳样式（静态站）。阅读器本身排版在 packages/reader/src/styles.css，
+ * 这里只管顶栏、课程页、册列表这些"站"的部分。
+ */
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: #fafafa;
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    background: #18181b;
+  }
+}
+
+.reader-root {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.reader {
+  flex: 1;
+  min-height: 0;
+}
+
+/* ---- 顶栏 ---- */
+
+.topbar {
+  flex: none;
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid var(--line, #e4e4e7);
+  background: var(--bg, #fafafa);
+}
+
+.topbar-back {
+  font: inherit;
+  font-size: 0.85rem;
+  padding: 0.25em 0.6em;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: none;
+  color: var(--fg-2, #52525b);
+  cursor: pointer;
+  transition: opacity 0.12s;
+}
+
+.topbar-back:hover {
+  background: var(--layer-2, #f4f4f5);
+}
+
+/* ---- 课程页 ---- */
+
+.course {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 2.5rem 2rem 6rem;
+  max-width: 56rem;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.course-head h1 {
+  font-size: 1.35rem;
+  margin: 0 0 0.4rem;
+}
+
+.course-direction {
+  margin: 0 0 0.3rem;
+  color: var(--fg-2, #52525b);
+  font-size: 0.9rem;
+}
+
+.course-meta {
+  margin: 0;
+  color: var(--fg-3, #a1a1aa);
+  font-size: 0.8rem;
+}
+
+.doc-list {
+  margin-top: 2.5rem;
+}
+
+.doc-list h2 {
+  font-size: 1rem;
+  margin: 0 0 0.75rem;
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.doc-hint {
+  font-size: 0.78rem;
+  font-weight: 400;
+  color: var(--fg-3, #a1a1aa);
+}
+
+.doc-list ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--line, #e4e4e7);
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--layer, #fff);
+}
+
+.doc-list li + li {
+  border-top: 1px solid var(--line, #e4e4e7);
+}
+
+.doc-list button {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.6rem 0.9rem;
+  font: inherit;
+  font-size: 0.9rem;
+  text-align: left;
+  color: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.12s;
+}
+
+.doc-list button:hover {
+  background: var(--layer-2, #f4f4f5);
+}
+
+.doc-index {
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 0.78rem;
+  color: var(--fg-3, #a1a1aa);
+  flex: none;
+}
+
+.doc-title {
+  flex: 1;
+  min-width: 0;
+}
+
+.doc-size {
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 0.72rem;
+  color: var(--fg-3, #a1a1aa);
+  flex: none;
+}

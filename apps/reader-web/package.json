@@ -1,0 +1,27 @@
+{
+  "name": "@app/reader-web",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "静态阅读站（纯阅读）：只用 packages/reader + 内容源装配。零 AI、零划词、零记录",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@app/reader": "workspace:*",
+    "katex": "^0.18.7",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.0"
+  }
+}

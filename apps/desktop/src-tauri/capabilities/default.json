@@ -1,0 +1,13 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "PC 壳的默认权限集。http 之所以开 http://** 与 https://** 全网通配：模型端点由用户自己填（docs/01 §3.2 已定案），无法预先枚举；这是「自定义模型」这个决定的必然代价，不是疏漏。",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    {
+      "identifier": "http:default",
+      "allow": [{ "url": "http://**" }, { "url": "https://**" }]
+    }
+  ]
+}

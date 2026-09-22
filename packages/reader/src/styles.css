@@ -1,0 +1,547 @@
+/**
+ * 阅读器样式。规范来源：docs/03 §8（「简约」要求都落到具体数值）。
+ *
+ * 关键约束：
+ *   正文行宽 38~45 汉字 · 强调色最多一个且饱和度 < 80% · 中性色用 Zinc · **禁用纯黑**
+ *   提示卡分类色相不超过 4 个 · 动效只动 transform / opacity · 滚动跳转不做平滑动画（长文档会失去位置感）
+ */
+
+.reader-root,
+.reader,
+.shelf {
+  --bg: #fafafa;
+  --layer: #ffffff;
+  --layer-2: #f4f4f5;
+  --line: #e4e4e7;
+  --fg: #18181b;
+  --fg-2: #52525b;
+  --fg-3: #a1a1aa;
+  --accent: #0f766e; /* 唯一的强调色（青绿，饱和度 < 80%） */
+  --warn: #b45309; /* 唯一的警示色 —— 只给「易错点/注意」 */
+  --radius: 6px;
+  --mono: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace;
+  --body-max: 46em;
+
+  color: var(--fg);
+  font-family: system-ui, "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+  font-size: 16px;
+  line-height: 1.85;
+}
+
+@media (prefers-color-scheme: dark) {
+  .reader-root,
+  .reader,
+  .shelf {
+    --bg: #18181b; /* off-black，不用 #000 */
+    --layer: #27272a;
+    --layer-2: #212124;
+    --line: #3f3f46;
+    --fg: #f4f4f5;
+    --fg-2: #a1a1aa;
+    --fg-3: #71717a;
+    --accent: #2dd4bf;
+    --warn: #fbbf24;
+  }
+}
+
+/* ---- 阅读器骨架 ---- */
+
+.reader {
+  display: grid;
+  grid-template-columns: 15rem minmax(0, 1fr);
+  gap: 2rem;
+  height: 100%;
+  overflow-y: auto;
+  background: var(--bg);
+  scroll-behavior: auto; /* 长文档不做平滑滚动 */
+}
+
+.reader-body {
+  max-width: var(--body-max);
+  margin: 0 auto;
+  padding: 3rem 2rem 8rem;
+  min-width: 0;
+}
+
+.reader-status {
+  padding: 4rem 2rem;
+  color: var(--fg-2);
+  text-align: center;
+}
+
+.reader-status .detail {
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  color: var(--fg-3);
+}
+
+.reader-foot {
+  margin-top: 4rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--line);
+  color: var(--fg-3);
+  font-size: 0.85rem;
+}
+
+/* 章级容器做 CSS containment，加速离屏章（docs/03 §10.2） */
+.reader-body > section[data-part-role='chapter'] {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 2000px;
+}
+
+/* ---- 正文排版 ---- */
+
+.reader-body h1 {
+  font-size: 1.6rem;
+  line-height: 1.4;
+  margin: 0 0 1rem;
+}
+
+/* 章标题：上间距 > 下间距（归属感，docs/03 §8.2） */
+.reader-body h2 {
+  font-size: 1.3rem;
+  margin: 3.5rem 0 1rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--line);
+}
+
+.reader-body > section:first-child h2 {
+  border-top: none;
+  padding-top: 0;
+}
+
+.reader-body h3 {
+  font-size: 1.08rem;
+  margin: 2.25rem 0 0.75rem;
+}
+
+.reader-body h4 {
+  font-size: 0.98rem;
+  color: var(--fg-2);
+  margin: 1.75rem 0 0.5rem;
+}
+
+.reader-body p {
+  margin: 0 0 1em;
+}
+
+/* 中文密排：段间距 > 行距；中英文之间自动留白 */
+.reader-body p + p {
+  margin-top: 1em;
+}
+
+.reader-body :not(pre) > code {
+  font-family: var(--mono);
+  font-size: 0.88em;
+  background: var(--layer-2);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 0.1em 0.35em;
+}
+
+.reader-body ul,
+.reader-body ol {
+  margin: 0 0 1em;
+  padding-left: 1.5em;
+}
+
+/* 嵌套列表要紧凑（笔记的「知识拓扑树」大量使用），否则长清单不可读 */
+.reader-body li > ul,
+.reader-body li > ol {
+  margin: 0.25em 0;
+}
+
+.reader-body li {
+  margin: 0.3em 0;
+}
+
+.reader-body strong {
+  font-weight: 600;
+}
+
+.reader-body blockquote {
+  margin: 1em 0;
+  padding: 0.25em 0 0.25em 1em;
+  border-left: 2px solid var(--line);
+  color: var(--fg-2);
+}
+
+.reader-body hr {
+  border: none;
+  border-top: 1px solid var(--line);
+  margin: 2.5rem 0;
+}
+
+/* ---- 表格：横向溢出时容器内滚动，不撑破页面 ---- */
+
+.table-scroll {
+  overflow-x: auto;
+  margin: 1.25em 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.table-scroll table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.9rem;
+}
+
+.table-scroll th,
+.table-scroll td {
+  padding: 0.5em 0.75em;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.table-scroll thead th {
+  position: sticky;
+  top: 0;
+  background: var(--layer-2);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.table-scroll tr:last-child td {
+  border-bottom: none;
+}
+
+/* ---- 学习要素卡片：九类，色相不超过 4 个 ---- */
+
+.callout {
+  margin: 1.25em 0;
+  padding: 0.85em 1em;
+  border-radius: var(--radius);
+  border-left: 3px solid var(--line);
+  background: var(--layer);
+  font-size: 0.95rem;
+}
+
+.callout-label {
+  display: inline-block;
+  margin-bottom: 0.35em;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--fg-2);
+}
+
+.callout-body > :last-child {
+  margin-bottom: 0;
+}
+
+/* 定义：强调色的弱化变体 */
+.callout-definition {
+  border-left-color: var(--accent);
+}
+.callout-definition .callout-label {
+  color: var(--accent);
+}
+
+/* 结论：强调色的深色竖线（与定义同色相，靠粗细/底色区分，不新增色相） */
+.callout-conclusion {
+  border-left-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 6%, var(--layer));
+}
+
+/* 易错点：唯一的警示色 */
+.callout-warning {
+  border-left-color: var(--warn);
+}
+.callout-warning .callout-label {
+  color: var(--warn);
+}
+
+/* 提示 / 过渡：中性 */
+.callout-tip,
+.callout-transition {
+  border-left-color: var(--fg-3);
+}
+
+.callout-transition {
+  background: transparent;
+  border-left-style: dashed;
+  color: var(--fg-2);
+  font-size: 0.9rem;
+}
+
+/* 册/章元信息：弱化展示，不占正文视觉重量（不折叠） */
+.callout-meta {
+  background: transparent;
+  border-left: none;
+  padding-left: 0;
+  color: var(--fg-3);
+  font-size: 0.82rem;
+  line-height: 1.7;
+}
+
+.callout-meta .callout-label {
+  color: var(--fg-3);
+}
+
+.callout-figure,
+.callout-generic {
+  border-left-color: var(--line);
+  background: var(--layer-2);
+}
+
+/* 题目：正文内唯一允许的默认折叠（把「读」变成「先自测再读」） */
+details.callout {
+  border-left-color: var(--accent);
+}
+
+details.callout > summary {
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--accent);
+  list-style: none;
+}
+
+details.callout > summary::-webkit-details-marker {
+  display: none;
+}
+
+details.callout[open] > summary {
+  margin-bottom: 0.5em;
+}
+
+/* ---- 代码块（高亮进视口才发生，未高亮时是纯文本） ---- */
+
+.code-block {
+  position: relative;
+  margin: 1.25em 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--layer-2);
+  overflow: hidden;
+}
+
+.code-block pre {
+  margin: 0;
+  padding: 0.9em 1em;
+  overflow-x: auto;
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
+.code-block pre code {
+  font-family: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+}
+
+.code-lang {
+  position: absolute;
+  top: 0;
+  right: 0;
+  padding: 0.15em 0.5em;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  color: var(--fg-3);
+  background: var(--layer);
+  border-left: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  border-radius: 0 var(--radius) 0 var(--radius);
+}
+
+/* Shiki 双主题：由 CSS 变量切换，不动 JS */
+.code-block .shiki span {
+  color: var(--shiki-light);
+}
+
+@media (prefers-color-scheme: dark) {
+  .code-block .shiki span {
+    color: var(--shiki-dark);
+  }
+}
+
+.code-block .shiki {
+  background: transparent !important;
+}
+
+/* ---- 公式（KaTeX）：行内公式与中文基线对齐 ---- */
+
+.reader-body .katex {
+  font-size: 1.05em;
+}
+
+.reader-body .katex-display {
+  margin: 1.25em 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+/* ---- 坏引用降级：不显示碎图 ---- */
+
+.broken-image {
+  display: inline-block;
+  padding: 0.1em 0.5em;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  color: var(--fg-3);
+  font-size: 0.8rem;
+}
+
+/* ---- 目录（章级 TOC + scroll-spy）---- */
+
+.toc {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  max-height: 100vh;
+  overflow-y: auto;
+  padding: 3rem 0 2rem 1.5rem;
+  border-right: 1px solid var(--line);
+  font-size: 0.85rem;
+}
+
+.toc-item,
+.toc-sub {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.3em 0.5em;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: var(--fg-2);
+  font: inherit;
+  cursor: pointer;
+  transition: opacity 0.12s;
+}
+
+.toc-item:hover,
+.toc-sub:hover {
+  background: var(--layer-2);
+}
+
+.toc-item.active {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.toc-sub {
+  padding-left: 1.2em;
+  font-size: 0.8rem;
+  color: var(--fg-3);
+}
+
+.toc-sub.active {
+  color: var(--accent);
+}
+
+.toc-chapter {
+  margin-bottom: 0.4em;
+}
+
+.toc-sections {
+  display: none;
+}
+
+/* 只在宽屏显示二级条目，避免目录本身变成负担 */
+@media (min-width: 1100px) {
+  .toc-sections {
+    display: block;
+  }
+}
+
+/* ---- 书架 ---- */
+
+.shelf {
+  background: var(--bg);
+  min-height: 100%;
+  padding: 3rem 2rem 6rem;
+}
+
+.shelf-head {
+  max-width: 60rem;
+  margin: 0 auto 2rem;
+}
+
+.shelf-head h1 {
+  font-size: 1.4rem;
+  margin: 0 0 0.35rem;
+}
+
+.shelf-head p {
+  margin: 0;
+  color: var(--fg-3);
+  font-size: 0.85rem;
+}
+
+.shelf-list {
+  list-style: none;
+  max-width: 60rem;
+  margin: 0 auto;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
+}
+
+.shelf-open {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  width: 100%;
+  padding: 1rem 1.1rem;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  background: var(--layer);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: transform 0.12s, border-color 0.12s;
+}
+
+.shelf-open:hover {
+  border-color: var(--fg-3);
+}
+
+.shelf-open:active {
+  transform: scale(0.995);
+}
+
+.shelf-title {
+  font-weight: 600;
+}
+
+.shelf-direction {
+  color: var(--fg-2);
+  font-size: 0.85rem;
+}
+
+.shelf-meta {
+  color: var(--fg-3);
+  font-size: 0.78rem;
+}
+
+.shelf-progress {
+  display: block;
+  height: 3px;
+  margin-top: 0.4rem;
+  border-radius: 2px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.shelf-bar {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.2s;
+}
+
+@media (max-width: 860px) {
+  .reader {
+    grid-template-columns: 1fr;
+  }
+  .toc {
+    display: none;
+  }
+}

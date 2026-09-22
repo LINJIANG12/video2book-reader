@@ -1,0 +1,19 @@
+# 行尾统一为 LF：本机是 Windows，CI 跑在 Linux 上。
+# 不固定的话 CRLF/LF 会在两边来回漂，diff 噪音大，shell 脚本还可能因为 CR 报错。
+* text=auto eol=lf
+
+# 二进制文件不参与换行处理
+*.png binary
+*.ico binary
+*.icns binary
+*.wasm binary
+
+# GitHub Actions 与 shell 脚本必须是 LF
+*.yml text eol=lf
+*.yaml text eol=lf
+*.sh text eol=lf
+*.mjs text eol=lf
+
+# 在 GitHub 上不把锁文件与图标算进语言统计
+pnpm-lock.yaml linguist-generated=true
+apps/desktop/src-tauri/Cargo.lock linguist-generated=true

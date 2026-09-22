@@ -1,0 +1,29 @@
+{
+  "name": "course-reader",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "课程精读：把 video2book-courses 的内容做成可精读的书架与阅读器（PC 桌面 / 静态网页 / 安卓三种装配）",
+  "packageManager": "pnpm@11.9.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "gen:manifest": "node scripts/gen-manifest.mjs",
+    "check:split": "node scripts/check-split.mjs",
+    "check:render": "node scripts/check-render.mjs",
+    "check": "pnpm check:split && pnpm check:render",
+    "stream-server": "node scripts/stream-echo-server.mjs",
+    "icon": "node scripts/make-icon.mjs",
+    "dev:web": "pnpm --filter @app/reader-web dev",
+    "dev": "pnpm --filter @app/desktop dev",
+    "tauri": "pnpm --filter @app/desktop tauri",
+    "build:web": "pnpm --filter @app/reader-web build",
+    "build": "pnpm --filter @app/desktop build",
+    "typecheck": "pnpm -r typecheck"
+  },
+  "devDependencies": {
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  }
+}

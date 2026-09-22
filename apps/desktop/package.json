@@ -1,0 +1,28 @@
+{
+  "name": "@app/desktop",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "PC 桌面壳（Tauri 2）：提供能力端口的实现 + 窗口 / 托盘 / 更新",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/api": "^2.11.1",
+    "@tauri-apps/cli": "^2.11.5",
+    "@tauri-apps/plugin-http": "^2.6.1",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.0"
+  }
+}

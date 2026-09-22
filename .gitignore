@@ -1,0 +1,31 @@
+# 依赖
+node_modules/
+.pnpm-store/
+
+# 构建产物
+dist/
+dist-ssr/
+*.local
+
+# 生成物：由 `pnpm gen:manifest` 产出（Cloudflare Pages 在构建期生成，不提交）
+apps/reader-web/public/manifest.json
+
+# Rust / Tauri
+target/
+**/src-tauri/target/
+**/src-tauri/gen/
+
+# 编辑器与系统
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+
+# 会话/计划产物（ZCode 的工作文件，不属于项目内容）
+.zcode/
+
+# 日志
+*.log
+npm-debug.log*
+pnpm-debug.log*

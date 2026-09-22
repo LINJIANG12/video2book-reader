@@ -1,0 +1,120 @@
+# 静态阅读站的双target部署。
+#
+# 两条**故意的不同策略**（用户决定）：
+#
+#   Cloudflare Pages —— 构建期生成 manifest.json 随站点发布，**运行时完全不碰 api.github.com**。
+#     适合国内网络：那些域名经常不可达或极慢，一旦运行时依赖它们，书架直接出不来。
+#     新课程靠本工作流的**每日定时重建**跟进（最多滞后一天）。
+#
+#   GitHub Pages —— **不带 manifest**，运行时实时取文件树，永远最新。
+#     代价是访客必须能访问 api.github.com；好处是新增课程立刻可见。
+#
+# 两者共用同一份代码：内容源先试 manifest，取不到自动回退到运行时取树。
+#
+# 需要配置的仓库 secret（Cloudflare 那一步）：
+#   CLOUDFLARE_API_TOKEN   —— 权限：Account > Cloudflare Pages > Edit
+#   CLOUDFLARE_ACCOUNT_ID
+#   CLOUDFLARE_PAGES_PROJECT —— 在 CF 控制台先建一个 Pages 项目（可以先连仓库或用 Direct Upload）
+# 没配这三项时，Cloudflare 那一步会跳过，GitHub Pages 照常部署。
+
+name: Deploy reader
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/reader-web/**'
+      - 'packages/reader/**'
+      - 'scripts/**'
+      - '.github/workflows/deploy-reader.yml'
+  schedule:
+    # 每天 03:17（UTC）重建一次，让 Cloudflare 版跟上课程仓的新内容
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: deploy-reader-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  cloudflare:
+    name: Cloudflare Pages（构建期 manifest）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # 构建期取一次树 → 写进 public/ → 随站点发布。GITHUB_TOKEN 提高 API 限流额度
+      - name: 生成 manifest
+        run: pnpm gen:manifest
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 构建（base=/）
+        run: pnpm --filter @app/reader-web exec vite build
+        env:
+          VITE_BASE: /
+          VITE_COURSES_REPO: LINJIANG12/video2book-courses
+
+      - name: 部署到 Cloudflare Pages
+        if: ${{ secrets.CLOUDFLARE_API_TOKEN != '' && secrets.CLOUDFLARE_ACCOUNT_ID != '' }}
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy apps/reader-web/dist --project-name=${{ secrets.CLOUDFLARE_PAGES_PROJECT }}
+      - name: 跳过提示
+        if: ${{ secrets.CLOUDFLARE_API_TOKEN == '' || secrets.CLOUDFLARE_ACCOUNT_ID == '' }}
+        run: |
+          echo "::notice::未配置 CLOUDFLARE_* secrets，已跳过 Cloudflare 部署。"
+          echo "在仓库 Settings → Secrets 里加上 CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID / CLOUDFLARE_PAGES_PROJECT 即可启用。"
+
+  github-pages:
+    name: GitHub Pages（运行时取树）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # 故意不生成 manifest：这一份走运行时取树，永远是最新结构
+      - name: 构建（base=/<repo>/）
+        run: pnpm --filter @app/reader-web exec vite build
+        env:
+          VITE_BASE: /${{ github.event.repository.name }}/
+          VITE_COURSES_REPO: LINJIANG12/video2book-courses
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: apps/reader-web/dist
+
+  deploy-pages:
+    needs: github-pages
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
