@@ -76,10 +76,11 @@ jobs:
           COURSES_REPO: ${{ env.COURSES_REPO }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 构建（base=/）
+      - name: 构建（base=/，manifest 优先）
         run: pnpm --filter @app/reader-web exec vite build
         env:
           VITE_BASE: /
+          VITE_CONTENT_PREFER: manifest
           VITE_COURSES_REPO: ${{ env.COURSES_REPO }}
 
       - name: 部署到 Cloudflare Pages
@@ -114,11 +115,19 @@ jobs:
       - name: 安装依赖
         run: pnpm install --frozen-lockfile
 
-      # 故意不生成 manifest：这一份走运行时取树，永远是最新结构
-      - name: 构建（base=/<repo>/）
+      # 这份**优先**运行时取树（永远最新），但同样生成 manifest 作为兜底。
+      # 理由：实测遇到过 api.github.com 瞬时 403（限流窗口边界 / 代理抖动），
+      # 没有兜底时整个书架会直接出不来——对分发的渠道这个失败模式太脆。
+      - name: 生成 manifest（兜底用）
+        run: pnpm gen:manifest
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 构建（base=/<repo>/，运行时优先）
         run: pnpm --filter @app/reader-web exec vite build
         env:
           VITE_BASE: /${{ github.event.repository.name }}/
+          VITE_CONTENT_PREFER: runtime
           VITE_COURSES_REPO: LINJIANG12/video2book-courses
 
       - uses: actions/configure-pages@v5

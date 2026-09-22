@@ -22,6 +22,8 @@ import { contentCache } from './idb-cache.ts'
 
 const REPO = (import.meta.env.VITE_COURSES_REPO as string | undefined) ?? 'LINJIANG12/video2book-courses'
 const REF = (import.meta.env.VITE_COURSES_REF as string | undefined) ?? 'main'
+/** 结构优先从哪来。GitHub Pages 用 runtime（实时），Cloudflare 用 manifest（不碰 api.github.com）。两者互为兜底 */
+const PREFER = (import.meta.env.VITE_CONTENT_PREFER as string | undefined) === 'runtime' ? 'runtime' : 'manifest'
 
 const [owner, repo] = REPO.split('/')
 
@@ -64,8 +66,9 @@ export function App() {
       owner,
       repo,
       ref: REF,
-      // 存在则用它（静态站），404 会自动回退到运行时取树（见 github-source 的说明）
+      // 两种模式都用它：优先则先读、否则作为失败兜底（见 GitHubSourceOptions.prefer）
       manifestUrl: `${import.meta.env.BASE_URL}manifest.json`,
+      prefer: PREFER,
       cache: contentCache,
     })
   }, [])

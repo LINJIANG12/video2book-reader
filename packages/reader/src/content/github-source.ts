@@ -25,8 +25,17 @@ export type GitHubSourceOptions = {
   owner: string
   repo: string
   ref?: string
-  /** 有则用 manifest（静态站），没有则运行时取树（桌面版） */
+  /** 有则用它。**两种模式下都会用到**——它是失败时的兜底，不只是"另一种模式" */
   manifestUrl?: string
+  /**
+   * 结构优先从哪来：
+   *   'runtime'  —— 先实时取树（永远最新），失败回退到 manifest。GitHub Pages 用这条。
+   *   'manifest' —— 先读构建期 manifest（**运行时不碰 api.github.com**），失败回退到实时取树。Cloudflare 用这条。
+   *
+   * 之所以两向都要回退：实测遇到过 api.github.com 瞬时 403（限流窗口边界 / 代理抖动），
+   * **一次失败就让整个书架不可用**——对分发的渠道来说这个失败模式太脆。
+   */
+  prefer?: 'manifest' | 'runtime'
   /** 可选持久化缓存，让已读的册离线可读。阅读器本身不认识存储实现 */
   cache?: DocumentCache
   /** 可选 token，仅用于提高 API 限流额度（60/小时 → 5000/小时） */
@@ -38,7 +47,7 @@ const CDN = 'https://cdn.jsdelivr.net/gh'
 const RAW = 'https://raw.githubusercontent.com'
 
 export function createGitHubSource(opts: GitHubSourceOptions): ContentSource {
-  const { owner, repo, ref = 'main', manifestUrl, cache, token } = opts
+  const { owner, repo, ref = 'main', manifestUrl, prefer = 'manifest', cache, token } = opts
 
   /** 结构只取一次，之后复用 */
   let coursesPromise: Promise<ManifestCourse[]> | null = null
@@ -60,7 +69,9 @@ export function createGitHubSource(opts: GitHubSourceOptions): ContentSource {
       fetchRootReadme(),
     ])
     if (!treeRes.ok) {
-      throw new Error(`取文件树失败：HTTP ${treeRes.status} ${treeRes.statusText}`)
+      // 403/429 基本都是未认证限流（60 次/小时/IP）。把原因说清楚，用户才知道该等一会儿还是换网络。
+      const hint = treeRes.status === 403 || treeRes.status === 429 ? '（很可能是未认证限流：60 次/小时/IP）' : ''
+      throw new Error(`HTTP ${treeRes.status} ${treeRes.statusText}${hint}`)
     }
     const json = (await treeRes.json()) as { tree: TreeEntry[]; truncated?: boolean }
     if (json.truncated) throw new Error('文件树被截断，需要改为逐目录取树')
@@ -81,17 +92,24 @@ export function createGitHubSource(opts: GitHubSourceOptions): ContentSource {
 
   function getCourses(): Promise<ManifestCourse[]> {
     coursesPromise ??= (async () => {
-      // manifest 优先，**取不到就回退到运行时取树**。
-      // 这个回退让两种部署共用一份代码：Cloudflare Pages 构建期生成 manifest（不碰 api.github.com），
-      // GitHub Pages 不生成（回退到实时取树，永远最新）。见 docs/03 §2.3。
-      if (manifestUrl) {
+      // 两条路互为兜底，顺序由 prefer 决定。这样两种部署共用一份代码，
+      // 且**任何一条路失败都不会让书架整个出不来**（见 GitHubSourceOptions.prefer 的说明）。
+      const attempts: { name: string; run: () => Promise<ManifestCourse[]> }[] = [
+        { name: '构建期 manifest', run: loadFromManifest },
+        { name: '运行时取文件树', run: loadFromTree },
+      ]
+      if (prefer === 'runtime') attempts.reverse()
+
+      const errors: string[] = []
+      for (const attempt of attempts) {
+        if (attempt.name === '构建期 manifest' && !manifestUrl) continue
         try {
-          return await loadFromManifest()
+          return await attempt.run()
         } catch (e) {
-          console.warn(`[content] manifest 不可用，回退到运行时取树：${(e as Error).message}`)
+          errors.push(`${attempt.name}：${(e as Error).message}`)
         }
       }
-      return loadFromTree()
+      throw new Error(`课程结构读取失败 —— ${errors.join('；')}`)
     })()
     return coursesPromise
   }
