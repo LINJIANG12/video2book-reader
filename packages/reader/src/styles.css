@@ -69,6 +69,11 @@
   text-align: center;
 }
 
+/* 读取失败：用唯一的警示色把它和「正在读取…」区分开（两者都用 .reader-status） */
+.reader-status-error {
+  border-left: 3px solid var(--warn);
+}
+
 .reader-status .detail {
   font-family: var(--mono);
   font-size: 0.8rem;

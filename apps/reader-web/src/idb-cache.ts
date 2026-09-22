@@ -30,7 +30,7 @@ function openDb(): Promise<IDBDatabase> {
   return dbPromise
 }
 
-export function byteLength(text: string): number {
+function byteLength(text: string): number {
   return new Blob([text]).size
 }
 
@@ -67,13 +67,4 @@ export const contentCache = {
       /* 写不进去就算了，不影响阅读 */
     }
   },
-}
-
-/** 内存缓存：IndexedDB 不可用时的兜底，接口与上面一致 */
-export function createMemoryCache() {
-  const map = new Map<string, string>()
-  return {
-    get: async (id: string) => map.get(id),
-    set: async (id: string, text: string) => void map.set(id, text),
-  }
 }

@@ -9,7 +9,8 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { splitDocument, type SplitDocument } from '../model/split-document.ts'
-import { createAnchorResult, renderPart } from '../markdown/render.ts'
+import { createAnchorResult } from '../markdown/transform.ts'
+import { renderPart } from '../markdown/render.ts'
 import type { BlockContext, ContentSource, DocumentId, OutlineNode, ReaderApi, ReadingEvents, ReaderSlots } from '../types.ts'
 
 export type ReaderProps = {
@@ -160,7 +161,7 @@ export function Reader({ contentSource, documentId, events, slots, apiRef, initi
     if (!apiRef) return
     apiRef.current = {
       scrollToBlock: (blockId) => {
-        const hit = blocksRef.current.find((b) => b.id === blockId) ?? blocksRef.current.find((b) => blockIndexRef.current.get(b.id)?.chapterIndex === Number(blockId))
+        const hit = blocksRef.current.find((b) => b.id === blockId)
         hit?.el.scrollIntoView({ block: 'start' })
       },
       getBlockContext: (blockId) => blockIndexRef.current.get(blockId),

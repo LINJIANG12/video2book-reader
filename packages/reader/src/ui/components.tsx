@@ -15,8 +15,10 @@ const LANG_ALIASES: Record<string, string> = {
   x86asm: 'asm',
   asm: 'asm',
   dos: 'batch', // 内容里的 ```dos 是 DOS 批处理，Shiki 对应 batch
+  cmd: 'batch', // ```cmd 同理（实测 5 处）
   shell: 'bash',
   sh: 'bash',
+  js: 'javascript', // ```js 实测 7 处，不映射的话白白不高亮
   // 无语言或纯文本：**不猜语言**，按纯文本渲染（docs/03 §5.2 的默认行为）
   text: '',
   txt: '',
@@ -149,7 +151,7 @@ export function CodeBlock({ children }: { children?: ReactNode }) {
   }
 
   return (
-    <div className="code-block" ref={ref as unknown as React.RefObject<HTMLDivElement>} data-pending={lang ? 'true' : undefined}>
+    <div className="code-block" ref={ref as unknown as React.RefObject<HTMLDivElement>}>
       {label}
       <pre>
         <code>{code}</code>

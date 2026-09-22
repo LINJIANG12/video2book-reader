@@ -94,15 +94,15 @@ export function createGitHubSource(opts: GitHubSourceOptions): ContentSource {
     coursesPromise ??= (async () => {
       // 两条路互为兜底，顺序由 prefer 决定。这样两种部署共用一份代码，
       // 且**任何一条路失败都不会让书架整个出不来**（见 GitHubSourceOptions.prefer 的说明）。
-      const attempts: { name: string; run: () => Promise<ManifestCourse[]> }[] = [
-        { name: '构建期 manifest', run: loadFromManifest },
-        { name: '运行时取文件树', run: loadFromTree },
+      const attempts: { needsManifest: boolean; name: string; run: () => Promise<ManifestCourse[]> }[] = [
+        { needsManifest: true, name: '构建期 manifest', run: loadFromManifest },
+        { needsManifest: false, name: '运行时取文件树', run: loadFromTree },
       ]
       if (prefer === 'runtime') attempts.reverse()
 
       const errors: string[] = []
       for (const attempt of attempts) {
-        if (attempt.name === '构建期 manifest' && !manifestUrl) continue
+        if (attempt.needsManifest && !manifestUrl) continue
         try {
           return await attempt.run()
         } catch (e) {
@@ -163,16 +163,5 @@ export function createGitHubSource(opts: GitHubSourceOptions): ContentSource {
       if (cache) await cache.set(id, text).catch(() => undefined)
       return text
     },
-
-    capabilities: { offline: cache !== undefined, writable: false },
-  }
-}
-
-/** 内存缓存：够开发与单次会话用；静态站换成 IndexedDB 实现即可让已读的册离线可读 */
-export function createMemoryCache(): DocumentCache {
-  const map = new Map<string, string>()
-  return {
-    get: async (key) => map.get(key),
-    set: async (key, value) => void map.set(key, value),
   }
 }

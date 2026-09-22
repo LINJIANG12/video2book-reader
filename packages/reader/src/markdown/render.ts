@@ -14,9 +14,6 @@ import type { DocPart } from '../model/split-document.ts'
 import type { BlockAnchorResult } from './anchors.ts'
 import { READER_COMPONENTS } from '../ui/components.tsx'
 
-export { createAnchorResult, transformPart, transformDocument, hastToText } from './transform.ts'
-export type { BlockAnchorResult } from './anchors.ts'
-
 /** 渲染一个部件为 React 节点，并把块索引与大纲写进 `result` */
 export function renderPart(tree: MdastRoot, part: DocPart, result: BlockAnchorResult): ReactNode {
   const hast = transformPart(tree, part, result)

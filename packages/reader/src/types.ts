@@ -63,15 +63,14 @@ export type ContentSource = {
   listCourses(): Promise<CourseSummary[]>
   loadCourse(id: CourseId): Promise<CourseDetail>
   loadDocument(id: DocumentId, signal?: AbortSignal): Promise<string>
-  capabilities: { offline: boolean; writable: false }
 }
 
 // ---- 阅读状态事件（阅读器只发事件，不管存哪；docs/03 §9.3）----
 
+/** 阅读器只发这两件事。「存哪、要不要存」全由调用方决定 */
 export type ReadingEvents = {
   onChapterEnter?: (documentId: DocumentId, chapterIndex: number) => void
   onScrollAnchor?: (documentId: DocumentId, chapterIndex: number, blockId: string) => void
-  onBookmarkToggle?: (documentId: DocumentId, chapterIndex: number) => void
 }
 
 // ---- 导航原语（docs/03 §9.4）----

@@ -22,7 +22,7 @@ export type {
   ReadingEvents,
 } from './types.ts'
 
-export { createGitHubSource, createMemoryCache, type DocumentCache, type GitHubSourceOptions } from './content/github-source.ts'
+export { createGitHubSource, type DocumentCache, type GitHubSourceOptions } from './content/github-source.ts'
 export { deriveCourses, parseDocName, parseRootReadme, toCourseSummary } from './content/derive.ts'
 
 export { splitDocument, parseChapterMeta, type ChapterMeta, type DocPart, type DocPartRole, type SplitDocument } from './model/split-document.ts'
