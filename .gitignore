@@ -8,7 +8,7 @@ dist-ssr/
 *.local
 
 # 生成物：由 `pnpm gen:manifest` 产出（Cloudflare Pages 在构建期生成，不提交）
-apps/reader-web/public/manifest.json
+github-web/public/manifest.json
 
 # 图标源图：由 `pnpm icon` 确定性生成，不提交二进制
 scripts/icon-source.png

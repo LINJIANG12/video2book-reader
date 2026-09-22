@@ -2,3 +2,6 @@ packages:
   - 'packages/*'
   - 'plugins/*'
   - 'apps/*'
+  # GitHub 静态站刻意放顶层，不在 apps/ 下：它不是一个"壳"，而是一条并列的
+  # 分发渠道（零安装、跨设备），也是唯一带自己部署工作流的产物。见 docs/00 §4。
+  - 'github-web'

@@ -34,7 +34,7 @@ const { deriveCourses, parseRootReadme } = await import('../packages/reader/src/
 process.env.NODE_USE_ENV_PROXY = '1'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
-const OUT = join(ROOT, 'apps/reader-web/public/manifest.json')
+const OUT = join(ROOT, 'github-web/public/manifest.json')
 
 const REPO = process.env.COURSES_REPO ?? 'LINJIANG12/video2book-courses'
 const REF = process.env.COURSES_REF ?? 'main'

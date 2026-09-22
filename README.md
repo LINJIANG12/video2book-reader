@@ -48,7 +48,7 @@ VITE_AUTOTEST=1 pnpm tauri dev
 packages/          核心包（M1 起逐步填入：reader / agent / plugin / ports / app）
 plugins/           可拆装的业务模块（study = 学习交互；删掉整个目录项目仍能跑）
 apps/desktop/      PC 壳：Tauri 2 + React，含能力端口的实现
-apps/reader-web/   静态阅读站（M3）
+github-web/        GitHub 静态阅读站（顶层独立文件夹，含自己的部署工作流）
 scripts/           开发期夹具与一次性工具
 docs/              设计与决策文档
 ```

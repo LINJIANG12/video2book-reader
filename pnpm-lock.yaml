@@ -49,11 +49,11 @@ importers:
         specifier: ^8.3.0
         version: 8.3.0(@types/node@26.6.2)
 
-  apps/reader-web:
+  github-web:
     dependencies:
       '@app/reader':
         specifier: workspace:*
-        version: link:../../packages/reader
+        version: link:../packages/reader
       katex:
         specifier: ^0.18.7
         version: 0.18.7

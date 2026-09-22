@@ -17,7 +17,7 @@
  *
  * ## 三件事
  *
- *   1. 扫 `packages/reader` 与 `apps/reader-web` 的 import，比对禁止清单
+ *   1. 扫 `packages/reader` 与 `github-web` 的 import，比对禁止清单
  *   2. 把 `plugins/` 临时移开再构建一次（不变量 4/5：删掉插件仍能构建）
  *   3. 扫静态版产物里的运行时关键词（**不扫类型名**——TS 类型编译后已被擦除，扫它等于没验）
  *
@@ -49,7 +49,7 @@ const rel = (p) => relative(ROOT, p).split(sep).join('/')
  *   @tauri-apps/、@capacitor/、electron  不变量 3：阅读器不认识任何壳
  *
  * 注意作用域：`@app/*` 只对**阅读器包**禁止（它必须是最内层，不得依赖任何其他工作区包），
- * 而 apps/reader-web **本来就应该** import `@app/reader`——那是它的消费者身份，不是违规。
+ * 而 github-web **本来就应该** import `@app/reader`——那是它的消费者身份，不是违规。
  */
 const RULES = {
   plugins: { re: /(^|\/)plugins\//, why: '插件目录（不变量 4）' },
@@ -71,13 +71,13 @@ const TARGETS = [
     rules: ['plugins', 'agent', 'workspace', 'shell', 'nodeBuiltin'],
   },
   {
-    name: 'apps/reader-web',
-    dir: join(ROOT, 'apps/reader-web/src'),
+    name: 'github-web',
+    dir: join(ROOT, 'github-web/src'),
     rules: ['plugins', 'agent', 'shell', 'nodeBuiltin'],
   },
   {
-    name: 'apps/reader-web 构建配置',
-    files: [join(ROOT, 'apps/reader-web/vite.config.ts')],
+    name: 'github-web 构建配置',
+    files: [join(ROOT, 'github-web/vite.config.ts')],
     rules: ['plugins', 'agent', 'shell'],
   },
 ]
@@ -164,7 +164,7 @@ function run(args, label) {
 
 try {
   if (hasPlugins) renameSync(pluginsDir, stashDir)
-  run(['--filter', '@app/reader-web', 'build'], '移开 plugins/ 后 @app/reader-web 构建通过')
+  run(['--filter', '@app/github-web', 'build'], '移开 plugins/ 后 @app/github-web 构建通过')
 } finally {
   // 无论构建成功与否都要放回去——脚本失败不能顺手弄丢用户的插件源码
   if (hasPlugins && existsSync(stashDir)) renameSync(stashDir, pluginsDir)
@@ -188,7 +188,7 @@ console.log('\n══ 3/3  静态版产物无 AI / 划词残留')
  */
 const KEYWORDS = ['selectionchange', 'getSelection', 'apiKey', 'chat/completions', 'x-api-key']
 
-const distDir = join(ROOT, 'apps/reader-web/dist')
+const distDir = join(ROOT, 'github-web/dist')
 const ownHits = []
 const vendorHits = new Map()
 let distFiles = 0

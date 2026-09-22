@@ -17,8 +17,8 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: [
-      { find: '@app/reader/styles.css', replacement: resolve(here('.'), '../../packages/reader/src/styles.css') },
-      { find: '@app/reader', replacement: resolve(here('.'), '../../packages/reader/src/index.ts') },
+      { find: '@app/reader/styles.css', replacement: resolve(here('.'), '../packages/reader/src/styles.css') },
+      { find: '@app/reader', replacement: resolve(here('.'), '../packages/reader/src/index.ts') },
     ],
   },
   server: { port: 5174, strictPort: true },

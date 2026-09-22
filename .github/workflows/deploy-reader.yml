@@ -27,7 +27,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'apps/reader-web/**'
+      - 'github-web/**'
       - 'packages/reader/**'
       - 'scripts/**'
       - '.github/workflows/deploy-reader.yml'
@@ -77,7 +77,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: 构建（base=/，manifest 优先）
-        run: pnpm --filter @app/reader-web exec vite build
+        run: pnpm --filter @app/github-web exec vite build
         env:
           VITE_BASE: /
           VITE_CONTENT_PREFER: manifest
@@ -89,7 +89,7 @@ jobs:
         with:
           apiToken: ${{ env.CF_TOKEN }}
           accountId: ${{ env.CF_ACCOUNT }}
-          command: pages deploy apps/reader-web/dist --project-name=${{ env.CF_PROJECT }}
+          command: pages deploy github-web/dist --project-name=${{ env.CF_PROJECT }}
 
       - name: 未配置 Cloudflare 时的提示
         if: env.CF_TOKEN == ''
@@ -124,7 +124,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: 构建（base=/<repo>/，运行时优先）
-        run: pnpm --filter @app/reader-web exec vite build
+        run: pnpm --filter @app/github-web exec vite build
         env:
           VITE_BASE: /${{ github.event.repository.name }}/
           VITE_CONTENT_PREFER: runtime
@@ -134,7 +134,7 @@ jobs:
 
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: apps/reader-web/dist
+          path: github-web/dist
 
   deploy-pages:
     name: 发布到 GitHub Pages

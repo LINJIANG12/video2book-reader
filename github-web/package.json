@@ -1,9 +1,9 @@
 {
-  "name": "@app/reader-web",
+  "name": "@app/github-web",
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "description": "静态阅读站（纯阅读）：只用 packages/reader + 内容源装配。零 AI、零划词、零记录",
+  "description": "GitHub 静态阅读站（纯阅读）：只用 packages/reader + 内容源装配。零 AI、零划词、零记录",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",

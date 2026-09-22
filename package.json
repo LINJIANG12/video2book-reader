@@ -16,10 +16,10 @@
     "verify:boundaries": "node scripts/verify-boundaries.mjs",
     "stream-server": "node scripts/stream-echo-server.mjs",
     "icon": "node scripts/make-icon.mjs",
-    "dev:web": "pnpm --filter @app/reader-web dev",
+    "dev:web": "pnpm --filter @app/github-web dev",
     "dev": "pnpm --filter @app/desktop dev",
     "tauri": "pnpm --filter @app/desktop tauri",
-    "build:web": "pnpm --filter @app/reader-web build",
+    "build:web": "pnpm --filter @app/github-web build",
     "build": "pnpm --filter @app/desktop build",
     "typecheck": "pnpm -r typecheck"
   },

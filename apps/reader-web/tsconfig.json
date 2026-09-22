@@ -1,9 +1,0 @@
-{
-  "extends": "../../tsconfig.base.json",
-  "compilerOptions": {
-    "paths": {
-      "@app/reader": ["../../packages/reader/src/index.ts"]
-    }
-  },
-  "include": ["src", "vite.config.ts"]
-}
