@@ -77,7 +77,8 @@ export function downloadCourseZip(
   }
 
   void (async () => {
-    await Promise.all(Array.from({ length: 4 }, worker))
+    // 提升并发至 10：借助 HTTP/2 多路复用，下载效率成倍提升，同时保持在 CDN 允许的安全频次内
+    await Promise.all(Array.from({ length: 10 }, worker))
     if (ac.signal.aborted) return
 
     // 顺序按路径排一下，解压出来目录结构可读（并发 push 的顺序是乱的）

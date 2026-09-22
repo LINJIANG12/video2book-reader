@@ -32,7 +32,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme='light']) {
     --bg: #18181b; /* off-black，不用 #000 */
     --layer: #27272a;
     --layer-2: #212124;
@@ -43,6 +43,30 @@
     --accent: #2dd4bf;
     --warn: #fbbf24;
   }
+}
+
+:root[data-theme='dark'] {
+  --bg: #18181b;
+  --layer: #27272a;
+  --layer-2: #212124;
+  --line: #3f3f46;
+  --fg: #f4f4f5;
+  --fg-2: #a1a1aa;
+  --fg-3: #71717a;
+  --accent: #2dd4bf;
+  --warn: #fbbf24;
+}
+
+:root[data-theme='light'] {
+  --bg: #fafafa;
+  --layer: #ffffff;
+  --layer-2: #f4f4f5;
+  --line: #e4e4e7;
+  --fg: #18181b;
+  --fg-2: #52525b;
+  --fg-3: #a1a1aa;
+  --accent: #0f766e;
+  --warn: #b45309;
 }
 
 /* 应用根：承载基础排版，色值全部继承 :root */
@@ -61,20 +85,52 @@
   flex: 1;
   min-height: 0;
   display: grid;
-  /* 15rem：中文标题很长，再窄就只剩十来个字可看（大纲项是省略显示的） */
-  grid-template-columns: 15rem minmax(0, 1fr);
-  gap: 2rem;
+  /* 16rem：中文标题有足够宽度展示，与正文通过 1px 细线自然分隔 */
+  grid-template-columns: 16rem minmax(0, 1fr);
+  gap: 0;
   background: var(--bg);
 }
 
-/* 正文**左对齐**（不居中）：居中的话会在左栏右侧留下大片空白，
-   一行 46em 的宽度本身已经定死了行长，再居中只是把留白堆在两边 */
+/* 正文容器撑满右侧区域（滚动条贴在屏幕最右边缘），
+   内容区居中排布并保持舒适的阅读行宽，避免右半屏大面积死白与滚动条居中问题 */
 .reader-body {
   overflow-y: auto;
-  max-width: var(--body-max);
-  padding: 2.5rem 3rem 8rem 0;
+  width: 100%;
   min-width: 0;
+  padding: 2.5rem 3rem 8rem;
   scroll-behavior: auto; /* 长文档不做平滑滚动 */
+}
+
+.reader-body > section,
+.reader-body > .reader-foot,
+.reader-body > footer {
+  max-width: 70rem;
+  margin-left: auto;
+  margin-right: auto;
+  width: 100%;
+}
+
+@media (min-width: 1400px) {
+  .reader-body > section,
+  .reader-body > .reader-foot,
+  .reader-body > footer {
+    max-width: 78rem;
+  }
+}
+
+@media (min-width: 1800px) {
+  .reader-body > section,
+  .reader-body > .reader-foot,
+  .reader-body > footer {
+    max-width: 86rem;
+  }
+}
+
+/* 支持一键宽屏铺满排版 */
+[data-reading-width='wide'] .reader-body > section,
+[data-reading-width='wide'] .reader-body > .reader-foot,
+[data-reading-width='wide'] .reader-body > footer {
+  max-width: 95% !important;
 }
 
 .reader-status {
@@ -116,12 +172,33 @@
   margin: 0 0 1.2rem;
 }
 
+/* ---- Typora 标题自动编号规范 (Typora-style Auto Heading Numbering) ---- */
+
+.reader-body {
+  counter-reset: h2-counter;
+}
+
+/* 仅对正式章节（role="chapter"）启用章序号递增，排除导读与全景目录、全景总结等 */
+.reader-body > section[data-part-role="chapter"] {
+  counter-increment: h2-counter;
+  counter-reset: h3-counter;
+}
+
 /* 章标题：上间距 > 下间距（归属感，docs/03 §8.2） */
 .reader-body h2 {
   font-size: 1.35rem;
   margin: 3.5rem 0 1rem;
   padding-top: 1.5rem;
   border-top: 1px solid var(--line);
+}
+
+.reader-body > section[data-part-role="chapter"] h2::before {
+  content: counter(h2-counter) ". ";
+  font-family: var(--mono);
+  font-size: 0.95em;
+  font-weight: 700;
+  color: var(--accent);
+  margin-right: 0.35rem;
 }
 
 .reader-body > section:first-child h2 {
@@ -134,10 +211,37 @@
   margin: 2.25rem 0 0.75rem;
 }
 
+.reader-body > section[data-part-role="chapter"] h3 {
+  counter-increment: h3-counter;
+  counter-reset: h4-counter;
+}
+
+.reader-body > section[data-part-role="chapter"] h3::before {
+  content: counter(h2-counter) "." counter(h3-counter) " ";
+  font-family: var(--mono);
+  font-size: 0.92em;
+  font-weight: 600;
+  color: var(--accent);
+  margin-right: 0.35rem;
+}
+
 .reader-body h4 {
   font-size: 1rem;
   color: var(--fg-2);
   margin: 1.75rem 0 0.5rem;
+}
+
+.reader-body > section[data-part-role="chapter"] h4 {
+  counter-increment: h4-counter;
+}
+
+.reader-body > section[data-part-role="chapter"] h4::before {
+  content: counter(h2-counter) "." counter(h3-counter) "." counter(h4-counter) " ";
+  font-family: var(--mono);
+  font-size: 0.88em;
+  font-weight: 600;
+  color: var(--fg-3);
+  margin-right: 0.35rem;
 }
 
 .reader-body p {
@@ -390,15 +494,57 @@ details.callout[open] > summary {
 .code-lang {
   position: absolute;
   top: 0;
-  right: 0;
-  padding: 0.15em 0.5em;
+  left: 0;
+  padding: 0.18em 0.6em;
   font-family: var(--mono);
-  font-size: 0.7rem;
+  font-size: 0.72rem;
+  font-weight: 500;
   color: var(--fg-3);
   background: var(--layer);
-  border-left: 1px solid var(--line);
+  border-right: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
-  border-radius: 0 var(--radius) 0 var(--radius);
+  border-radius: 0 0 var(--radius) 0;
+  letter-spacing: 0.02em;
+}
+
+.code-copy-btn {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.55rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.22em 0.6em;
+  font-family: inherit;
+  font-size: 0.72rem;
+  line-height: 1.3;
+  color: var(--fg-3);
+  background: var(--layer);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.16s ease, color 0.16s ease, border-color 0.16s ease, background 0.16s ease;
+  z-index: 2;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.code-block:hover .code-copy-btn,
+.code-copy-btn:focus-visible,
+.code-copy-btn.copied {
+  opacity: 1;
+}
+
+.code-copy-btn:hover {
+  color: var(--fg);
+  border-color: var(--fg-3);
+  background: var(--layer-2);
+}
+
+.code-copy-btn.copied {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--layer));
 }
 
 /* Shiki 双主题：由 CSS 变量切换，不动 JS */
@@ -407,9 +553,17 @@ details.callout[open] > summary {
 }
 
 @media (prefers-color-scheme: dark) {
-  .code-block .shiki span {
+  :root:not([data-theme='light']) .code-block .shiki span {
     color: var(--shiki-dark);
   }
+}
+
+:root[data-theme='dark'] .code-block .shiki span {
+  color: var(--shiki-dark);
+}
+
+:root[data-theme='light'] .code-block .shiki span {
+  color: var(--shiki-light);
 }
 
 .code-block .shiki {
@@ -557,14 +711,23 @@ details.callout[open] > summary {
 .outline-link.active {
   color: var(--accent);
   font-weight: 600;
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 
-/* 层级用**字重 + 缩进**区分，不靠亮度：
-   结构层（册 / 章）加粗、内容层（节 / 小节）常规——这样"哪里是一章的开头"一眼可见。
-   早先只让 L3 小 6% 是看不出来的。 */
+/* 层级用**字重 + 缩进 + Typora 序号**区分：
+   结构层（册 / 章）加粗、内容层（节 / 小节）常规——这样"哪里是一章的开头"一眼可见。 */
+.outline {
+  counter-reset: outline-h2;
+}
+
 .outline-l1 > .outline-row > .outline-link {
   font-weight: 600;
   color: var(--fg);
+}
+
+.outline-l2 {
+  counter-increment: outline-h2;
+  counter-reset: outline-h3;
 }
 
 .outline-l2 > .outline-row > .outline-link {
@@ -572,13 +735,47 @@ details.callout[open] > summary {
   color: var(--fg-2);
 }
 
+.outline-l2 > .outline-row > .outline-link::before {
+  content: counter(outline-h2) ". ";
+  font-family: var(--mono);
+  font-size: 0.88em;
+  font-weight: 600;
+  color: var(--accent);
+  margin-right: 0.25rem;
+}
+
+.outline-l3 {
+  counter-increment: outline-h3;
+  counter-reset: outline-h4;
+}
+
 .outline-l3 > .outline-row > .outline-link {
   font-size: 0.94em;
+}
+
+.outline-l3 > .outline-row > .outline-link::before {
+  content: counter(outline-h2) "." counter(outline-h3) " ";
+  font-family: var(--mono);
+  font-size: 0.85em;
+  color: var(--accent);
+  margin-right: 0.25rem;
+}
+
+.outline-l4 {
+  counter-increment: outline-h4;
 }
 
 .outline-l4 > .outline-row > .outline-link {
   font-size: 0.88em;
   color: var(--fg-3);
+}
+
+.outline-l4 > .outline-row > .outline-link::before {
+  content: counter(outline-h2) "." counter(outline-h3) "." counter(outline-h4) " ";
+  font-family: var(--mono);
+  font-size: 0.82em;
+  color: var(--fg-3);
+  margin-right: 0.25rem;
 }
 
 /* ---- 册内搜索 ---- */
@@ -690,8 +887,20 @@ details.callout[open] > summary {
 
 /* 表头与每行共用同一套列宽，数字才能竖着对齐 */
 .shelf-table {
-  max-width: 54rem;
+  max-width: 68rem;
   margin: 0 auto;
+}
+
+@media (min-width: 1400px) {
+  .shelf-table {
+    max-width: 78rem;
+  }
+}
+
+@media (min-width: 1800px) {
+  .shelf-table {
+    max-width: 86rem;
+  }
 }
 
 .shelf-columns,
@@ -812,10 +1021,28 @@ details.callout[open] > summary {
 /* ---- 窄屏：左栏收成抽屉 ----
    旧实现是 < 860px 直接 display:none，等于手机上根本没有大纲与册内搜索。
    现在改成左下角一个开关，点开左栏覆盖在正文上。 */
+.reader-backdrop {
+  display: none;
+}
+
 @media (max-width: 900px) {
   .reader {
     grid-template-columns: minmax(0, 1fr);
     gap: 0;
+  }
+
+  .reader-backdrop {
+    display: none;
+  }
+
+  .reader[data-rail-open] .reader-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 9;
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
   }
 
   .rail {
@@ -826,9 +1053,9 @@ details.callout[open] > summary {
     width: min(20rem, 84vw);
     padding: 2.5rem 0 2rem 1rem;
     background: var(--bg);
-    box-shadow: 1px 0 0 var(--line);
+    box-shadow: 2px 0 16px rgba(0, 0, 0, 0.15);
     transform: translateX(-100%);
-    transition: transform 0.16s ease-out;
+    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   .reader[data-rail-open] .rail {
@@ -843,20 +1070,23 @@ details.callout[open] > summary {
     display: block;
     position: fixed;
     z-index: 11;
-    bottom: 1rem;
-    left: 1rem;
-    padding: 0.4em 0.8em;
+    bottom: 1.25rem;
+    left: 1.25rem;
+    padding: 0.45em 0.9em;
     font: inherit;
     font-size: 0.8rem;
+    font-weight: 500;
     color: var(--fg-2);
     background: var(--layer);
     border: 1px solid var(--line);
     border-radius: 999px;
     cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+    transition: left 0.2s cubic-bezier(0.16, 1, 0.3, 1), background 0.15s ease;
   }
 
   .rail-toggle[aria-expanded='true'] {
-    left: min(20rem, 84vw);
+    left: min(20.5rem, 85vw);
   }
 }
 

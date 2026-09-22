@@ -196,12 +196,21 @@ export function Reader({ contentSource, documentId, events, slots, apiRef, initi
 
   return (
     <div className="reader" data-rail-open={railDrawer || undefined}>
+      <div className="reader-backdrop" onClick={() => setRailDrawer(false)} aria-hidden="true" />
       <button
         type="button"
         className="rail-toggle"
         aria-expanded={railDrawer}
         onClick={() => setRailDrawer((v) => !v)}
       >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: '-2px', marginRight: '4px' }}>
+          <line x1="8" y1="6" x2="21" y2="6" />
+          <line x1="8" y1="12" x2="21" y2="12" />
+          <line x1="8" y1="18" x2="21" y2="18" />
+          <line x1="3" y1="6" x2="3.01" y2="6" />
+          <line x1="3" y1="12" x2="3.01" y2="12" />
+          <line x1="3" y1="18" x2="3.01" y2="18" />
+        </svg>
         {railTab === 'outline' ? '大纲' : '搜索'}
       </button>
 
@@ -224,13 +233,26 @@ export function Reader({ contentSource, documentId, events, slots, apiRef, initi
         {/* 两块面板都挂着、用 CSS 隐藏非当前的：切 tab 不会丢掉大纲的展开状态与搜索索引 */}
         <div className={railTab === 'outline' ? 'rail-panel' : 'rail-panel rail-panel-off'}>
           {rendered?.outline.length ? (
-            <OutlineTree nodes={rendered.outline} onJump={scrollToBlock} />
+            <OutlineTree
+              nodes={rendered.outline}
+              onJump={(blockId) => {
+                scrollToBlock(blockId)
+                if (window.innerWidth <= 900) setRailDrawer(false)
+              }}
+            />
           ) : (
             <p className="rail-empty">这一册没有可列的标题。</p>
           )}
         </div>
         <div className={railTab === 'search' ? 'rail-panel' : 'rail-panel rail-panel-off'}>
-          <DocSearch blocksRef={blocksRef} blockIndexRef={blockIndexRef} onJump={scrollToBlock} />
+          <DocSearch
+            blocksRef={blocksRef}
+            blockIndexRef={blockIndexRef}
+            onJump={(blockId) => {
+              scrollToBlock(blockId)
+              if (window.innerWidth <= 900) setRailDrawer(false)
+            }}
+          />
         </div>
       </aside>
 

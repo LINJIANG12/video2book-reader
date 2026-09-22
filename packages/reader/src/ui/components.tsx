@@ -104,12 +104,24 @@ function extractText(node: ReactNode): string {
 export function CodeBlock({ children }: { children?: ReactNode }) {
   const ref = useRef<HTMLPreElement>(null)
   const [html, setHtml] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
 
   const codeProps = (children as { props?: { className?: string; children?: ReactNode } } | undefined)?.props
   const className = codeProps?.className ?? ''
   const rawLang = /language-([\w+#-]+)/.exec(className)?.[1]?.toLowerCase() ?? ''
   const lang = rawLang in LANG_ALIASES ? LANG_ALIASES[rawLang] : rawLang
   const code = typeof codeProps?.children === 'string' ? codeProps.children : extractText(children)
+
+  const onCopy = async () => {
+    if (!code) return
+    try {
+      await navigator.clipboard.writeText(code)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      /* 降级忽略 */
+    }
+  }
 
   useEffect(() => {
     if (!lang || !code) return
@@ -140,11 +152,22 @@ export function CodeBlock({ children }: { children?: ReactNode }) {
   }, [lang, code])
 
   const label = lang ? <span className="code-lang">{lang}</span> : null
+  const copyBtn = code ? (
+    <button
+      type="button"
+      className={copied ? 'code-copy-btn copied' : 'code-copy-btn'}
+      onClick={() => void onCopy()}
+      aria-label="复制代码"
+    >
+      {copied ? '✓ 已复制' : '复制'}
+    </button>
+  ) : null
 
   if (html) {
     return (
       <div className="code-block" ref={ref as unknown as React.RefObject<HTMLDivElement>}>
         {label}
+        {copyBtn}
         <div dangerouslySetInnerHTML={{ __html: html }} />
       </div>
     )
@@ -153,6 +176,7 @@ export function CodeBlock({ children }: { children?: ReactNode }) {
   return (
     <div className="code-block" ref={ref as unknown as React.RefObject<HTMLDivElement>}>
       {label}
+      {copyBtn}
       <pre>
         <code>{code}</code>
       </pre>

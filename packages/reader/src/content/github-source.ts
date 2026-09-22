@@ -199,7 +199,8 @@ export function createGitHubSource(opts: GitHubSourceOptions): ContentSource {
         if (hit !== undefined) return hit
       }
       const text = await fetchContent(id, signal)
-      if (cache) await cache.set(id, text).catch(() => undefined)
+      // 异步写入缓存，不阻塞网络并发队列的下一次抓取
+      if (cache) void cache.set(id, text).catch(() => undefined)
       return text
     },
   }

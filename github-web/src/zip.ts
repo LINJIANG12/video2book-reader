@@ -104,14 +104,21 @@ export async function buildZip(entries: ZipEntry[], date = new Date()): Promise<
   const body = new Writer()
   const central = new Writer()
 
-  for (const entry of entries) {
-    const name = encoder.encode(entry.name)
-    const crc = crc32(entry.data)
-    const deflated = await deflateRaw(entry.data)
-    // 压不小就别压（小文件与已压缩内容压缩后反而更大）
-    const useDeflate = deflated !== undefined && deflated.length < entry.data.length
-    const payload = useDeflate ? deflated : entry.data
-    const method = useDeflate ? 8 : 0
+  // 并发压缩所有条目：利用多核并行，避免 100+ 条目在单线程中逐个串行等待 CompressionStream
+  const prepared = await Promise.all(
+    entries.map(async (entry) => {
+      const name = encoder.encode(entry.name)
+      const crc = crc32(entry.data)
+      const deflated = await deflateRaw(entry.data)
+      // 压不小就别压（小文件与已压缩内容压缩后反而更大）
+      const useDeflate = deflated !== undefined && deflated.length < entry.data.length
+      const payload = useDeflate ? deflated : entry.data
+      const method = useDeflate ? 8 : 0
+      return { entry, name, crc, payload, method }
+    }),
+  )
+
+  for (const { entry, name, crc, payload, method } of prepared) {
     const offset = body.length
 
     // local file header
