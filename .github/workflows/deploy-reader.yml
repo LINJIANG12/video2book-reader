@@ -1,4 +1,4 @@
-# 静态阅读站的双target部署。
+# 静态阅读站的双目标部署。
 #
 # 两条**故意的不同策略**（用户决定）：
 #
@@ -14,8 +14,12 @@
 # 需要配置的仓库 secret（Cloudflare 那一步）：
 #   CLOUDFLARE_API_TOKEN   —— 权限：Account > Cloudflare Pages > Edit
 #   CLOUDFLARE_ACCOUNT_ID
-#   CLOUDFLARE_PAGES_PROJECT —— 在 CF 控制台先建一个 Pages 项目（可以先连仓库或用 Direct Upload）
-# 没配这三项时，Cloudflare 那一步会跳过，GitHub Pages 照常部署。
+#   CLOUDFLARE_PAGES_PROJECT —— 在 CF 控制台先建一个 Pages 项目
+# 没配时 Cloudflare 那一步会自动跳过并给提示，GitHub Pages 照常部署。
+#
+# 注意：`secrets` 上下文**不能出现在 `if` 条件里**（GitHub 的上下文可用性表里没有它，
+# 用了会直接报 "workflow file issue" 并 0 秒失败）。所以这里先把 secret 落到 job 级 env，
+# 再用 `env.X != ''` 判断——这是官方推荐的写法。
 
 name: Deploy reader
 
@@ -45,57 +49,70 @@ jobs:
   cloudflare:
     name: Cloudflare Pages（构建期 manifest）
     runs-on: ubuntu-latest
+    env:
+      COURSES_REPO: LINJIANG12/video2book-courses
+      CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CF_PROJECT: ${{ secrets.CLOUDFLARE_PAGES_PROJECT }}
     steps:
       - uses: actions/checkout@v4
+
       - uses: pnpm/action-setup@v4
         with:
           version: 11
+
       - uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: pnpm
 
-      - run: pnpm install --frozen-lockfile
+      - name: 安装依赖
+        run: pnpm install --frozen-lockfile
 
-      # 构建期取一次树 → 写进 public/ → 随站点发布。GITHUB_TOKEN 提高 API 限流额度
+      # 构建期取一次树 → 写进 public/ → 随站点发布
       - name: 生成 manifest
         run: pnpm gen:manifest
         env:
+          COURSES_REPO: ${{ env.COURSES_REPO }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: 构建（base=/）
         run: pnpm --filter @app/reader-web exec vite build
         env:
           VITE_BASE: /
-          VITE_COURSES_REPO: LINJIANG12/video2book-courses
+          VITE_COURSES_REPO: ${{ env.COURSES_REPO }}
 
       - name: 部署到 Cloudflare Pages
-        if: ${{ secrets.CLOUDFLARE_API_TOKEN != '' && secrets.CLOUDFLARE_ACCOUNT_ID != '' }}
+        if: env.CF_TOKEN != ''
         uses: cloudflare/wrangler-action@v3
         with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy apps/reader-web/dist --project-name=${{ secrets.CLOUDFLARE_PAGES_PROJECT }}
-      - name: 跳过提示
-        if: ${{ secrets.CLOUDFLARE_API_TOKEN == '' || secrets.CLOUDFLARE_ACCOUNT_ID == '' }}
+          apiToken: ${{ env.CF_TOKEN }}
+          accountId: ${{ env.CF_ACCOUNT }}
+          command: pages deploy apps/reader-web/dist --project-name=${{ env.CF_PROJECT }}
+
+      - name: 未配置 Cloudflare 时的提示
+        if: env.CF_TOKEN == ''
         run: |
           echo "::notice::未配置 CLOUDFLARE_* secrets，已跳过 Cloudflare 部署。"
-          echo "在仓库 Settings → Secrets 里加上 CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID / CLOUDFLARE_PAGES_PROJECT 即可启用。"
+          echo "在仓库 Settings → Secrets and variables → Actions 里加上 CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID / CLOUDFLARE_PAGES_PROJECT 即可启用。"
 
   github-pages:
     name: GitHub Pages（运行时取树）
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: pnpm/action-setup@v4
         with:
           version: 11
+
       - uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: pnpm
 
-      - run: pnpm install --frozen-lockfile
+      - name: 安装依赖
+        run: pnpm install --frozen-lockfile
 
       # 故意不生成 manifest：这一份走运行时取树，永远是最新结构
       - name: 构建（base=/<repo>/）
@@ -105,11 +122,13 @@ jobs:
           VITE_COURSES_REPO: LINJIANG12/video2book-courses
 
       - uses: actions/configure-pages@v5
+
       - uses: actions/upload-pages-artifact@v3
         with:
           path: apps/reader-web/dist
 
   deploy-pages:
+    name: 发布到 GitHub Pages
     needs: github-pages
     runs-on: ubuntu-latest
     environment:
