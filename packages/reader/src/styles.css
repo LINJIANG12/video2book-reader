@@ -184,12 +184,13 @@
   counter-reset: h3-counter;
 }
 
-/* 章标题：上间距 > 下间距（归属感，docs/03 §8.2） */
+/* 章标题：Typora 风格底部分割线与自然间距（彻底消除大标题顶部过大空白） */
 .reader-body h2 {
   font-size: 1.35rem;
-  margin: 3.5rem 0 1rem;
-  padding-top: 1.5rem;
-  border-top: 1px solid var(--line);
+  margin: 2.25rem 0 0.85rem;
+  padding: 0 0 0.45rem;
+  border-top: none;
+  border-bottom: 1px solid var(--line);
 }
 
 .reader-body > section[data-part-role="chapter"] h2::before {
@@ -202,8 +203,7 @@
 }
 
 .reader-body > section:first-child h2 {
-  border-top: none;
-  padding-top: 0;
+  margin-top: 0.75rem;
 }
 
 .reader-body h3 {
@@ -292,7 +292,13 @@
 .reader-body hr {
   border: none;
   border-top: 1px solid var(--line);
-  margin: 2.5rem 0;
+  margin: 1.5rem 0;
+}
+
+/* 章节末尾的冗余分隔线（笔记作者常在章末手写 --- 作为章节分割）不重复展示产生死白 */
+.reader-body > section > hr:last-child,
+.reader-body > section > hr:has(+ hr:last-child) {
+  display: none;
 }
 
 /* ---- 表格：横向溢出时容器内滚动，不撑破页面 ---- */
