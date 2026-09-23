@@ -3,6 +3,15 @@
 把 [video2book-courses](https://github.com/LINJIANG12/video2book-courses) 的课程内容做成可精读的书架与阅读器。
 **一套代码，三种装配**：PC 桌面（主）、静态网页（零安装分发）、安卓（后续）。
 
+> [!TIP]
+> ### 📖 静态在线体验站（免安装）
+>
+> [![在线阅读](https://img.shields.io/badge/在线阅读-课程精读%20Web%20站-0f766e?style=for-the-badge&logo=safari&logoColor=white)](https://linjiang12.github.io/video2book-reader/)
+> [![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-已部署上线-10b981?style=for-the-badge&logo=github&logoColor=white)](https://linjiang12.github.io/video2book-reader/)
+>
+> 纯静态版本已持续部署在 GitHub Pages：[**https://linjiang12.github.io/video2book-reader/**](https://linjiang12.github.io/video2book-reader/)  
+> 开箱即用，内置全库 16 门课程书架、Typora 标题自动多级编号、KaTeX 公式秒级渲染与多端全景自适应排版。
+
 ## 先读文档
 
 设计与决策都在 [`docs/`](docs/)，**实现以它们为准**：
