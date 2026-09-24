@@ -11,10 +11,11 @@
   "scripts": {
     "gen:manifest": "node scripts/gen-manifest.mjs",
     "check:derive": "node scripts/check-derive.mjs",
+    "check:bookshelf": "node scripts/check-bookshelf.mjs",
     "check:split": "node scripts/check-split.mjs",
     "check:render": "node scripts/check-render.mjs",
     "check:zip": "node scripts/check-zip.mjs",
-    "check": "pnpm check:split && pnpm check:render && pnpm check:zip",
+    "check": "pnpm check:derive && pnpm check:bookshelf && pnpm check:split && pnpm check:render && pnpm check:zip",
     "verify:boundaries": "node scripts/verify-boundaries.mjs",
     "stream-server": "node scripts/stream-echo-server.mjs",
     "icon": "node scripts/make-icon.mjs",

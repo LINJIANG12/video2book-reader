@@ -16,6 +16,7 @@ import { deriveCourses, parseCourseCatalog, parseRootReadme, toCourseSummary, ty
 import type {
   ContentSource,
   CourseCatalog,
+  CourseCatalogCategory,
   CourseDetail,
   CourseId,
   CourseSummary,
@@ -59,21 +60,21 @@ const RAW = 'https://raw.githubusercontent.com'
 export function createGitHubSource(opts: GitHubSourceOptions): ContentSource {
   const { owner, repo, ref = 'main', manifestUrl, prefer = 'manifest', cache, token } = opts
 
-  /** 结构只取一次，之后复用 */
-  let coursesPromise: Promise<ManifestCourse[]> | null = null
+  type CourseStructure = { courses: ManifestCourse[]; categories: CourseCatalogCategory[] }
+  let structurePromise: Promise<CourseStructure> | null = null
 
   function authHeaders(extra: Record<string, string> = {}): Record<string, string> {
     return token ? { ...extra, authorization: `Bearer ${token}` } : extra
   }
 
-  async function loadFromManifest(): Promise<ManifestCourse[]> {
+  async function loadFromManifest(): Promise<CourseStructure> {
     const res = await fetch(manifestUrl!)
     if (!res.ok) throw new Error(`取 manifest 失败：HTTP ${res.status}`)
     const manifest = (await res.json()) as Manifest
-    return manifest.courses
+    return { courses: manifest.courses, categories: manifest.categories ?? [] }
   }
 
-  async function loadFromTree(): Promise<ManifestCourse[]> {
+  async function loadFromTree(): Promise<CourseStructure> {
     const [treeRes, catalog] = await Promise.all([
       fetch(`${API}/repos/${owner}/${repo}/git/trees/${ref}?recursive=1`, { headers: authHeaders({ accept: 'application/vnd.github+json' }) }),
       fetchCatalog(),
@@ -86,7 +87,10 @@ export function createGitHubSource(opts: GitHubSourceOptions): ContentSource {
     const json = (await treeRes.json()) as { tree: TreeEntry[]; truncated?: boolean }
     if (json.truncated) throw new Error('文件树被截断，需要改为逐目录取树')
     const readmeInfo = await fetchRootReadme(catalog)
-    return deriveCourses(json.tree.filter((e) => e.type === 'blob'), readmeInfo, catalog)
+    return {
+      courses: deriveCourses(json.tree.filter((e) => e.type === 'blob'), readmeInfo, catalog),
+      categories: catalog?.categories ?? [],
+    }
   }
 
   async function fetchCatalog(): Promise<CourseCatalog | undefined> {
@@ -110,11 +114,11 @@ export function createGitHubSource(opts: GitHubSourceOptions): ContentSource {
     }
   }
 
-  function getCourses(): Promise<ManifestCourse[]> {
-    coursesPromise ??= (async () => {
+  function getStructure(): Promise<CourseStructure> {
+    structurePromise ??= (async () => {
       // 两条路互为兜底，顺序由 prefer 决定。这样两种部署共用一份代码，
       // 且**任何一条路失败都不会让书架整个出不来**（见 GitHubSourceOptions.prefer 的说明）。
-      const attempts: { needsManifest: boolean; name: string; run: () => Promise<ManifestCourse[]> }[] = [
+      const attempts: { needsManifest: boolean; name: string; run: () => Promise<CourseStructure> }[] = [
         { needsManifest: true, name: '构建期 manifest', run: loadFromManifest },
         { needsManifest: false, name: '运行时取文件树', run: loadFromTree },
       ]
@@ -131,7 +135,7 @@ export function createGitHubSource(opts: GitHubSourceOptions): ContentSource {
       }
       throw new Error(`课程结构读取失败 —— ${errors.join('；')}`)
     })()
-    return coursesPromise
+    return structurePromise
   }
 
   async function fetchContent(path: string, signal?: AbortSignal): Promise<string> {
@@ -160,11 +164,15 @@ export function createGitHubSource(opts: GitHubSourceOptions): ContentSource {
 
   return {
     async listCourses(): Promise<CourseSummary[]> {
-      return (await getCourses()).map(toCourseSummary)
+      return (await getStructure()).courses.map(toCourseSummary)
+    },
+
+    async listCategories(): Promise<CourseCatalogCategory[]> {
+      return (await getStructure()).categories
     },
 
     async loadCourse(id: CourseId): Promise<CourseDetail> {
-      const course = (await getCourses()).find((c) => c.id === id)
+      const course = (await getStructure()).courses.find((c) => c.id === id)
       if (!course) throw new Error(`没有这门课：${id}`)
       return {
         ...toCourseSummary(course),
@@ -182,7 +190,7 @@ export function createGitHubSource(opts: GitHubSourceOptions): ContentSource {
       if (!q) return []
 
       const hits: TitleHit[] = []
-      for (const course of await getCourses()) {
+      for (const course of (await getStructure()).courses) {
         signal?.throwIfAborted()
         if (course.title.toLowerCase().includes(q) || course.id.toLowerCase().includes(q)) {
           hits.push({ courseId: course.id, courseTitle: course.title, kind: 'course', title: course.title })
@@ -201,7 +209,7 @@ export function createGitHubSource(opts: GitHubSourceOptions): ContentSource {
     async loadDocument(id: DocumentId, signal?: AbortSignal): Promise<string> {
       // 期望大小来自已加载的结构（文件树 / manifest）——缓存靠它判断记录是否已失效。
       // 逐字稿也要查：它是只有 count 的那类产件，漏掉会让它的缓存永不失效。
-      const expectedSize = (await getCourses())
+      const expectedSize = (await getStructure()).courses
         .flatMap((c) => [...c.volumes, ...c.notes, ...c.subtitles])
         .find((d) => d.id === id)?.size
 

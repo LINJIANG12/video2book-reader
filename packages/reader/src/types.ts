@@ -110,9 +110,10 @@ export type TitleHit = {
 
 export type ContentSource = {
   listCourses(): Promise<CourseSummary[]>
+  listCategories(): Promise<CourseCatalogCategory[]>
   loadCourse(id: CourseId): Promise<CourseDetail>
   loadDocument(id: DocumentId, signal?: AbortSignal): Promise<string>
-  /** 在已加载的课程结构里搜标题。实现不得为此发起网络请求 */
+  /** 在已加载的课程结构里搜标题。实现不得为此发起额外网络请求（见下） */
   searchTitles(query: string, signal?: AbortSignal): Promise<TitleHit[]>
 }
 

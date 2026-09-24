@@ -875,6 +875,122 @@ details.callout[open] > summary {
   padding: 3rem 2rem 6rem;
 }
 
+.shelf-layout {
+  display: grid;
+  grid-template-columns: minmax(11rem, 14rem) minmax(0, 1fr);
+  gap: 2rem;
+  max-width: 68rem;
+  margin: 0 auto;
+}
+
+.shelf-no-nav {
+  display: block;
+}
+
+.shelf-nav {
+  align-self: start;
+  position: sticky;
+  top: 1.5rem;
+  max-height: calc(100vh - 5rem);
+  overflow-y: auto;
+  padding: 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--layer);
+}
+
+.shelf-nav-title {
+  padding: 0.25rem 0.4rem 0.65rem;
+  color: var(--fg-3);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.shelf-nav-tree {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.shelf-nav-tree .shelf-nav-tree {
+  margin: 0;
+}
+
+.shelf-nav-item {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.42rem 0.45rem;
+  border: 0;
+  border-radius: 5px;
+  color: var(--fg-2);
+  background: transparent;
+  font: inherit;
+  font-size: 0.8rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.shelf-nav-item:hover,
+.shelf-nav-item:focus-visible {
+  color: var(--fg);
+  background: var(--layer-2);
+}
+
+.shelf-nav-item.is-active {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  font-weight: 600;
+}
+
+.shelf-nav-count {
+  flex: none;
+  color: var(--fg-3);
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.shelf-main {
+  min-width: 0;
+}
+
+.shelf-main .shelf-head {
+  max-width: none;
+  margin: 0 0 1.5rem;
+}
+
+.shelf-group + .shelf-group {
+  margin-top: 1.4rem;
+}
+
+.shelf-group-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 0 0 0.25rem;
+  color: var(--fg-2);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.shelf-group-count {
+  color: var(--fg-3);
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  font-weight: 400;
+}
+
+.shelf-filter-empty {
+  padding: 3rem 1rem;
+  color: var(--fg-3);
+  text-align: center;
+}
+
 .shelf-head {
   max-width: 54rem;
   margin: 0 auto 2rem;
@@ -1012,6 +1128,26 @@ details.callout[open] > summary {
 }
 
 @media (max-width: 720px) {
+  .shelf-layout {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .shelf-nav {
+    position: static;
+    max-height: 15rem;
+    padding: 0.55rem;
+  }
+
+  .shelf-nav-tree {
+    max-height: 10rem;
+    overflow-y: auto;
+  }
+
+  .shelf-main .shelf-head {
+    margin-bottom: 1rem;
+  }
+
   /* 窄屏只留序号、课程名与册数：其余计数在册列表里都看得到 */
   .shelf-columns,
   .shelf-open {
