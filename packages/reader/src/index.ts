@@ -27,7 +27,7 @@ export type {
 } from './types.ts'
 
 export { createGitHubSource, type DocumentCache, type GitHubSourceOptions } from './content/github-source.ts'
-export { buildCategoryTree, categoryContainsCourse, countCategory, groupCourses, type CategoryNode, type CourseGroup } from './content/category-tree.ts'
+export { buildCategoryTree, categoryContainsCourse, collectBranchIds, countCategory, findCategoryAncestors, groupCourses, isCategoryInPath, type CategoryNode, type CourseGroup } from './content/category-tree.ts'
 export { courseIdFromDocumentId, deriveCourses, parseCourseCatalog, parseDocName, parseRootReadme, toCourseSummary } from './content/derive.ts'
 
 export { splitDocument, parseChapterMeta, type ChapterMeta, type DocPart, type DocPartRole, type SplitDocument } from './model/split-document.ts'

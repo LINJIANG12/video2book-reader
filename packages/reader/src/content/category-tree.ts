@@ -21,6 +21,39 @@ export function buildCategoryTree(categories: CourseCatalogCategory[]): Category
   return roots
 }
 
+/** 返回所有有子节点的分类 ID。 */
+export function collectBranchIds(tree: CategoryNode[]): string[] {
+  const ids: string[] = []
+  const walk = (nodes: CategoryNode[]) => {
+    for (const node of nodes) {
+      if (node.children.length === 0) continue
+      ids.push(node.id)
+      walk(node.children)
+    }
+  }
+  walk(tree)
+  return ids
+}
+
+/** 按实际构建树返回从根到父节点的祖先链。 */
+export function findCategoryAncestors(tree: CategoryNode[], categoryId: string): string[] {
+  const walk = (nodes: CategoryNode[], ancestors: string[]): string[] | undefined => {
+    for (const node of nodes) {
+      if (node.id === categoryId) return ancestors
+      const found = walk(node.children, [...ancestors, node.id])
+      if (found) return found
+    }
+    return undefined
+  }
+  return walk(tree, []) ?? []
+}
+
+/** 判断节点是否位于当前选中分类的祖先路径上。 */
+export function isCategoryInPath(tree: CategoryNode[], categoryId: string, selectedCategoryId: string | null): boolean {
+  if (!selectedCategoryId) return false
+  return categoryId === selectedCategoryId || findCategoryAncestors(tree, selectedCategoryId).includes(categoryId)
+}
+
 function pathsFor(course: CourseSummary): string[] {
   return course.categoryPaths ?? []
 }

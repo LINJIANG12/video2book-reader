@@ -954,6 +954,155 @@ details.callout[open] > summary {
   font-variant-numeric: tabular-nums;
 }
 
+.shelf-layout.shelf-nav-collapsed {
+  grid-template-columns: 3.5rem minmax(0, 1fr);
+}
+
+.shelf-nav.is-collapsed {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 0.45rem;
+}
+
+.shelf-nav-restore {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.45rem 0.25rem;
+  border: 0;
+  border-radius: 5px;
+  color: var(--fg-2);
+  background: transparent;
+  font: inherit;
+  font-size: 0.7rem;
+  cursor: pointer;
+}
+
+.shelf-nav-restore:hover,
+.shelf-nav-restore:focus-visible {
+  color: var(--accent);
+  background: var(--layer-2);
+}
+
+.shelf-nav-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.shelf-nav-title {
+  padding: 0.25rem 0.4rem 0.25rem 0;
+}
+
+.shelf-nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+}
+
+.shelf-nav-actions button {
+  padding: 0.2rem 0.25rem;
+  border: 0;
+  border-radius: 4px;
+  color: var(--fg-3);
+  background: transparent;
+  font: inherit;
+  font-size: 0.65rem;
+  cursor: pointer;
+}
+
+.shelf-nav-actions button:hover,
+.shelf-nav-actions button:focus-visible {
+  color: var(--accent);
+  background: var(--layer-2);
+}
+
+.shelf-tree-row {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  border-left: 2px solid transparent;
+  border-radius: 5px;
+}
+
+.shelf-tree-row.is-path {
+  border-left-color: color-mix(in srgb, var(--accent) 50%, transparent);
+}
+
+.shelf-tree-toggle,
+.shelf-tree-spacer {
+  flex: 0 0 1.35rem;
+  width: 1.35rem;
+  height: 1.8rem;
+}
+
+.shelf-tree-toggle {
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  color: var(--fg-3);
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+
+.shelf-tree-toggle:hover,
+.shelf-tree-toggle:focus-visible {
+  color: var(--accent);
+  background: var(--layer-2);
+}
+
+.shelf-tree-toggle:focus-visible,
+.shelf-nav-item:focus-visible,
+.shelf-nav-actions button:focus-visible,
+.shelf-mobile-nav-toggle:focus-visible,
+.shelf-filter-empty button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.shelf-nav-item.is-path:not(.is-active) {
+  color: var(--fg);
+}
+
+.shelf-breadcrumb {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.15rem;
+  margin: 0 0 0.35rem;
+  color: var(--fg-3);
+  font-size: 0.78rem;
+}
+
+.shelf-filter-empty button,
+.shelf-mobile-nav-toggle {
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  color: var(--fg-2);
+  background: var(--layer);
+  font: inherit;
+  cursor: pointer;
+}
+
+.shelf-filter-empty button {
+  margin-top: 0.8rem;
+  padding: 0.45rem 0.7rem;
+}
+
+.shelf-filter-empty button:hover,
+.shelf-mobile-nav-toggle:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.shelf-mobile-nav-toggle {
+  display: none;
+}
+
 .shelf-main {
   min-width: 0;
 }
@@ -1128,19 +1277,46 @@ details.callout[open] > summary {
 }
 
 @media (max-width: 720px) {
-  .shelf-layout {
+  .shelf-layout,
+  .shelf-layout.shelf-nav-collapsed {
     grid-template-columns: 1fr;
-    gap: 1rem;
+    gap: 0.75rem;
+  }
+
+  .shelf-mobile-nav-toggle {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+    padding: 0.65rem 0.75rem;
+    text-align: left;
+  }
+
+  .shelf-mobile-nav-toggle span:nth-child(2) {
+    margin-left: auto;
+    color: var(--fg-3);
+    font-family: var(--mono);
+    font-size: 0.7rem;
   }
 
   .shelf-nav {
+    display: none;
     position: static;
-    max-height: 15rem;
+    max-height: 18rem;
     padding: 0.55rem;
   }
 
+  .shelf-nav.is-mobile-open {
+    display: block;
+  }
+
+  .shelf-nav.is-collapsed {
+    display: none;
+  }
+
   .shelf-nav-tree {
-    max-height: 10rem;
+    max-height: 11rem;
     overflow-y: auto;
   }
 
@@ -1157,6 +1333,15 @@ details.callout[open] > summary {
   .shelf-columns > span:nth-child(n + 5),
   .shelf-open > .shelf-num:nth-child(n + 5) {
     display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shelf-nav,
+  .shelf-nav-item,
+  .shelf-tree-toggle,
+  .shelf-mobile-nav-toggle {
+    transition: none !important;
   }
 }
 

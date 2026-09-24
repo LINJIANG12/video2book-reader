@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { buildCategoryTree, categoryContainsCourse, countCategory, groupCourses } from '../packages/reader/src/content/category-tree.ts'
+import { buildCategoryTree, categoryContainsCourse, collectBranchIds, countCategory, findCategoryAncestors, groupCourses, isCategoryInPath } from '../packages/reader/src/content/category-tree.ts'
 
 const categories = [
   { id: 'computer', name: '计算机' },
@@ -34,5 +34,12 @@ assert.equal(new Set(allGroups.flatMap((group) => group.courses.map((course) => 
 const aiGroups = groupCourses(courses, 'computer.ai', categories)
 assert.deepEqual(aiGroups.map((group) => group.id), ['computer.ai', 'computer.ai.nlp'])
 assert.equal(aiGroups.flatMap((group) => group.courses).length, 2)
+
+assert.deepEqual(collectBranchIds(tree), ['computer', 'computer.ai', 'math'])
+assert.deepEqual(findCategoryAncestors(tree, 'computer.ai.nlp'), ['computer', 'computer.ai'])
+assert.deepEqual(findCategoryAncestors(tree, 'unmapped'), [])
+assert.equal(isCategoryInPath(tree, 'computer', 'computer.ai.nlp'), true)
+assert.equal(isCategoryInPath(tree, 'math', 'computer.ai.nlp'), false)
+assert.equal(isCategoryInPath(tree, 'computer.ai.nlp', null), false)
 
 console.log('bookshelf check passed')

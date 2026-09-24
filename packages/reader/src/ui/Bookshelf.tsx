@@ -1,14 +1,16 @@
 /**
- * 书架：支持多级分类导航、按主分类分组和课程索引。
+ * 书架：多级分类导航、按主分类分组和课程索引。
  *
  * 分类数据来自 catalog/manifest；每门课程在当前视图只出现一次，交叉分类
  * 只用于筛选和导航，不重复累计课程、册数或笔记数。
  */
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   buildCategoryTree,
   categoryContainsCourse,
+  collectBranchIds,
   countCategory,
+  findCategoryAncestors,
   groupCourses,
   type CategoryNode,
 } from '../content/category-tree.ts'
@@ -26,9 +28,21 @@ type State =
   | { phase: 'ready'; courses: CourseSummary[]; categories: CourseCatalogCategory[] }
   | { phase: 'error'; message: string }
 
+const ALL_COURSES_ID = '__all_courses__'
+
+function treeDomId(categoryId: string): string {
+  return `shelf-tree-${categoryId.replace(/[^a-zA-Z0-9_-]/g, '_')}`
+}
+
 export function Bookshelf({ contentSource, onOpen, progress = {} }: BookshelfProps) {
   const [state, setState] = useState<State>({ phase: 'loading' })
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null)
+  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(() => new Set())
+  const [navCollapsed, setNavCollapsed] = useState(false)
+  const [mobileNavOpen, setMobileNavOpen] = useState(false)
+  const initializedTree = useRef(false)
+  const navRef = useRef<HTMLElement>(null)
+  const mobileToggleRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -48,6 +62,7 @@ export function Bookshelf({ contentSource, onOpen, progress = {} }: BookshelfPro
   const courses = state.phase === 'ready' ? state.courses : []
   const categories = state.phase === 'ready' ? state.categories : []
   const tree = useMemo(() => buildCategoryTree(categories), [categories])
+  const branchIds = useMemo(() => collectBranchIds(tree), [tree])
   const groups = useMemo(
     () => groupCourses(courses, selectedCategoryId, categories),
     [courses, selectedCategoryId, categories],
@@ -57,6 +72,92 @@ export function Bookshelf({ contentSource, onOpen, progress = {} }: BookshelfPro
     [courses, selectedCategoryId],
   )
   const courseOrder = useMemo(() => new Map(courses.map((course, index) => [course.id, index])), [courses])
+  const selectedAncestors = useMemo(
+    () => (selectedCategoryId ? findCategoryAncestors(tree, selectedCategoryId) : []),
+    [tree, selectedCategoryId],
+  )
+  const activePathIds = useMemo(
+    () => new Set(selectedCategoryId ? [...selectedAncestors, selectedCategoryId] : []),
+    [selectedAncestors, selectedCategoryId],
+  )
+
+  useEffect(() => {
+    if (state.phase !== 'ready') return
+    const valid = new Set(branchIds)
+    setCollapsedIds((previous) => {
+      if (!initializedTree.current) {
+        initializedTree.current = true
+        return new Set(branchIds.filter((id) => id.includes('.')))
+      }
+      return new Set([...previous].filter((id) => valid.has(id)))
+    })
+  }, [branchIds, state.phase])
+
+  const selectCategory = useCallback((categoryId: string | null) => {
+    setSelectedCategoryId(categoryId)
+    if (categoryId) {
+      const ancestors = findCategoryAncestors(tree, categoryId)
+      setCollapsedIds((previous) => {
+        const next = new Set(previous)
+        ancestors.forEach((ancestor) => next.delete(ancestor))
+        return next
+      })
+    }
+    setMobileNavOpen(false)
+  }, [tree])
+
+  const toggleCategory = useCallback((categoryId: string) => {
+    setCollapsedIds((previous) => {
+      const next = new Set(previous)
+      if (next.has(categoryId)) next.delete(categoryId)
+      else next.add(categoryId)
+      return next
+    })
+  }, [])
+
+  const expandAll = useCallback(() => setCollapsedIds(new Set()), [])
+  const collapseAll = useCallback(() => setCollapsedIds(new Set(branchIds)), [branchIds])
+
+  const handleTreeKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLButtonElement>, categoryId: string, hasChildren: boolean) => {
+      const visibleButtons = Array.from(navRef.current?.querySelectorAll<HTMLButtonElement>('[data-category-id]') ?? []).filter(
+        (button) => button.offsetParent !== null,
+      )
+      const index = visibleButtons.findIndex((button) => button.dataset.categoryId === categoryId)
+      const focusAt = (nextIndex: number) => {
+        const button = visibleButtons[(nextIndex + visibleButtons.length) % visibleButtons.length]
+        button?.focus()
+      }
+      const focusCategory = (targetId: string) => visibleButtons.find((button) => button.dataset.categoryId === targetId)?.focus()
+
+      if (event.key === 'ArrowDown') {
+        event.preventDefault()
+        focusAt(index + 1)
+      } else if (event.key === 'ArrowUp') {
+        event.preventDefault()
+        focusAt(index - 1)
+      } else if (event.key === 'Home') {
+        event.preventDefault()
+        focusAt(0)
+      } else if (event.key === 'End') {
+        event.preventDefault()
+        focusAt(visibleButtons.length - 1)
+      } else if (event.key === 'ArrowRight') {
+        event.preventDefault()
+        const node = findNode(tree, categoryId)
+        if (hasChildren && collapsedIds.has(categoryId)) toggleCategory(categoryId)
+        else if (node?.children[0]) focusCategory(node.children[0].id)
+      } else if (event.key === 'ArrowLeft') {
+        event.preventDefault()
+        if (hasChildren && !collapsedIds.has(categoryId)) toggleCategory(categoryId)
+        else {
+          const parent = findCategoryAncestors(tree, categoryId).at(-1)
+          if (parent) focusCategory(parent)
+        }
+      }
+    },
+    [collapsedIds, selectedAncestors, toggleCategory, tree],
+  )
 
   if (state.phase === 'loading') return <div className="reader-status">正在读取书架…</div>
   if (state.phase === 'error') {
@@ -75,23 +176,69 @@ export function Bookshelf({ contentSource, onOpen, progress = {} }: BookshelfPro
   const selectedName = selectedCategoryId
     ? categories.find((category) => category.id === selectedCategoryId)?.name ?? selectedCategoryId
     : '全部课程'
+  const selectedPath = selectedCategoryId
+    ? [...selectedAncestors, selectedCategoryId].map((id) => categories.find((category) => category.id === id)?.name ?? id)
+    : []
 
   return (
     <div className="shelf">
-      <div className={`shelf-layout${categories.length === 0 ? ' shelf-no-nav' : ''}`}>
+      <div className={`shelf-layout${categories.length === 0 ? ' shelf-no-nav' : ''}${navCollapsed ? ' shelf-nav-collapsed' : ''}`}>
         {categories.length > 0 && (
-          <CategoryNav
-            courses={courses}
-            tree={tree}
-            selectedCategoryId={selectedCategoryId}
-            onSelect={setSelectedCategoryId}
-          />
+          <>
+            <button
+              ref={mobileToggleRef}
+              type="button"
+              className="shelf-mobile-nav-toggle"
+              aria-expanded={mobileNavOpen}
+              aria-controls="shelf-category-nav"
+              onClick={() => {
+                if (navCollapsed) setNavCollapsed(false)
+                setMobileNavOpen((open) => !open)
+              }}
+            >
+              <span>分类 · {selectedName}</span>
+              <span>{visibleCourses.length} 门</span>
+              <span aria-hidden="true">{mobileNavOpen ? '▴' : '▾'}</span>
+            </button>
+            <CategoryNav
+              ref={navRef}
+              id="shelf-category-nav"
+              courses={courses}
+              tree={tree}
+              hasBranches={branchIds.length > 0}
+              collapsedIds={collapsedIds}
+              activePathIds={activePathIds}
+              selectedCategoryId={selectedCategoryId}
+              onSelect={selectCategory}
+              onNodeKeyDown={handleTreeKeyDown}
+              onToggle={toggleCategory}
+              onExpandAll={expandAll}
+              onCollapseAll={collapseAll}
+              navCollapsed={navCollapsed}
+              onCollapseNav={() => setNavCollapsed((collapsed) => !collapsed)}
+              mobileOpen={mobileNavOpen}
+              onKeyDownEscape={() => {
+                setMobileNavOpen(false)
+                mobileToggleRef.current?.focus()
+              }}
+            />
+          </>
         )}
 
         <main className="shelf-main">
           <header className="shelf-head">
             <h1>{selectedName}</h1>
-            <p className="shelf-stats">
+            {selectedPath.length > 0 && (
+              <nav className="shelf-breadcrumb" aria-label="当前分类路径">
+                {selectedPath.map((name, index) => (
+                  <span key={`${name}-${index}`}>
+                    {index > 0 && <span aria-hidden="true"> / </span>}
+                    {name}
+                  </span>
+                ))}
+              </nav>
+            )}
+            <p className="shelf-stats" aria-live="polite" aria-atomic="true">
               {visibleCourses.length} 门课 · {sum((course) => course.volumeCount)} 册模块全书 ·{' '}
               {sum((course) => course.noteCount)} 篇复习笔记 · {sum((course) => course.subtitleCount)} 份逐字稿
             </p>
@@ -109,7 +256,10 @@ export function Bookshelf({ contentSource, onOpen, progress = {} }: BookshelfPro
             </div>
 
             {groups.length === 0 ? (
-              <div className="shelf-filter-empty">这个分类下暂时没有课程。</div>
+              <div className="shelf-filter-empty">
+                <p>这个分类下暂时没有课程。</p>
+                <button type="button" onClick={() => selectCategory(null)}>返回全部课程</button>
+              </div>
             ) : (
               groups.map((group) => (
                 <section className="shelf-group" key={group.id}>
@@ -161,37 +311,106 @@ export function Bookshelf({ contentSource, onOpen, progress = {} }: BookshelfPro
   )
 }
 
+function findNode(tree: CategoryNode[], categoryId: string): CategoryNode | undefined {
+  for (const node of tree) {
+    if (node.id === categoryId) return node
+    const found = findNode(node.children, categoryId)
+    if (found) return found
+  }
+  return undefined
+}
+
 function CategoryNav({
+  ref,
+  id,
   courses,
   tree,
+  hasBranches,
+  collapsedIds,
+  activePathIds,
   selectedCategoryId,
   onSelect,
+  onNodeKeyDown,
+  onToggle,
+  onExpandAll,
+  onCollapseAll,
+  navCollapsed,
+  onCollapseNav,
+  mobileOpen,
+  onKeyDownEscape,
 }: {
+  ref: React.RefObject<HTMLElement | null>
+  id: string
   courses: CourseSummary[]
   tree: CategoryNode[]
+  hasBranches: boolean
+  collapsedIds: Set<string>
+  activePathIds: Set<string>
   selectedCategoryId: string | null
   onSelect: (id: string | null) => void
+  onNodeKeyDown: (event: React.KeyboardEvent<HTMLButtonElement>, id: string, hasChildren: boolean) => void
+  onToggle: (id: string) => void
+  onExpandAll: () => void
+  onCollapseAll: () => void
+  navCollapsed: boolean
+  onCollapseNav: () => void
+  mobileOpen: boolean
+  onKeyDownEscape: () => void
 }) {
+  if (navCollapsed) {
+    return (
+      <aside id={id} className="shelf-nav is-collapsed">
+        <button type="button" className="shelf-nav-restore" onClick={onCollapseNav} aria-label="展开分类导航">
+          <span aria-hidden="true">☰</span>
+          <span>分类</span>
+        </button>
+      </aside>
+    )
+  }
+
   return (
-    <aside className="shelf-nav">
-      <div className="shelf-nav-title">分类导航</div>
+    <aside
+      ref={ref}
+      id={id}
+      className={`shelf-nav${mobileOpen ? ' is-mobile-open' : ''}`}
+      aria-label="课程分类导航"
+      onKeyDown={(event) => {
+        if (event.key === 'Escape') onKeyDownEscape()
+      }}
+    >
+      <div className="shelf-nav-head">
+        <div className="shelf-nav-title">分类导航</div>
+        {hasBranches && (
+          <div className="shelf-nav-actions">
+            <button type="button" onClick={onExpandAll} aria-label="展开全部分类">全部展开</button>
+            <button type="button" onClick={onCollapseAll} aria-label="收起全部分类">全部收起</button>
+            <button type="button" onClick={onCollapseNav} aria-label="收起分类导航">收起</button>
+          </div>
+        )}
+      </div>
       <button
         type="button"
         className={`shelf-nav-item shelf-nav-all${selectedCategoryId === null ? ' is-active' : ''}`}
+        data-category-id={ALL_COURSES_ID}
         onClick={() => onSelect(null)}
+        onKeyDown={(event) => onNodeKeyDown(event, ALL_COURSES_ID, false)}
         aria-current={selectedCategoryId === null ? 'page' : undefined}
       >
         <span>全部课程</span>
         <span className="shelf-nav-count">{courses.length}</span>
       </button>
-      <ul className="shelf-nav-tree">
+      <ul className="shelf-nav-tree" role="tree" aria-label="课程分类">
         {tree.map((node) => (
           <CategoryBranch
             key={node.id}
             node={node}
             courses={courses}
+            collapsedIds={collapsedIds}
+            activePathIds={activePathIds}
             selectedCategoryId={selectedCategoryId}
             onSelect={onSelect}
+            onToggle={onToggle}
+            onKeyDown={onNodeKeyDown}
             depth={0}
           />
         ))}
@@ -203,39 +422,72 @@ function CategoryNav({
 function CategoryBranch({
   node,
   courses,
+  collapsedIds,
+  activePathIds,
   selectedCategoryId,
   onSelect,
+  onToggle,
+  onKeyDown,
   depth,
 }: {
   node: CategoryNode
   courses: CourseSummary[]
+  collapsedIds: Set<string>
+  activePathIds: Set<string>
   selectedCategoryId: string | null
-  onSelect: (id: string | null) => void
+  onSelect: (id: string) => void
+  onToggle: (id: string) => void
+  onKeyDown: (event: React.KeyboardEvent<HTMLButtonElement>, id: string, hasChildren: boolean) => void
   depth: number
 }) {
-  const count = countCategory(courses, node.id)
-  const active = selectedCategoryId === node.id
+  const hasChildren = node.children.length > 0
+  const expanded = !collapsedIds.has(node.id)
+  const selected = selectedCategoryId === node.id
+  const inPath = activePathIds.has(node.id)
   return (
-    <li>
-      <button
-        type="button"
-        className={`shelf-nav-item${active ? ' is-active' : ''}`}
-        style={{ paddingLeft: `${0.65 + depth * 0.75}rem` }}
-        onClick={() => onSelect(node.id)}
-        aria-current={active ? 'page' : undefined}
-      >
-        <span>{node.name}</span>
-        <span className="shelf-nav-count">{count}</span>
-      </button>
-      {node.children.length > 0 && (
-        <ul className="shelf-nav-tree">
+    <li role="none">
+      <div className={`shelf-tree-row${inPath ? ' is-path' : ''}`} role="treeitem" aria-selected={selected} aria-expanded={hasChildren ? expanded : undefined}>
+        {hasChildren ? (
+          <button
+            type="button"
+            className="shelf-tree-toggle"
+            aria-label={`${expanded ? '收起' : '展开'}${node.name}`}
+            aria-expanded={expanded}
+            aria-controls={treeDomId(node.id)}
+            tabIndex={-1}
+            onClick={() => onToggle(node.id)}
+          >
+            <span aria-hidden="true">{expanded ? '▾' : '▸'}</span>
+          </button>
+        ) : (
+          <span className="shelf-tree-spacer" aria-hidden="true" />
+        )}
+        <button
+          type="button"
+          className={`shelf-nav-item${selected ? ' is-active' : ''}${inPath ? ' is-path' : ''}`}
+          data-category-id={node.id}
+          style={{ paddingLeft: `${0.45 + depth * 0.55}rem` }}
+          onClick={() => onSelect(node.id)}
+          onKeyDown={(event) => onKeyDown(event, node.id, hasChildren)}
+          aria-current={selected ? 'page' : undefined}
+        >
+          <span>{node.name}</span>
+          <span className="shelf-nav-count">{countCategory(courses, node.id)}</span>
+        </button>
+      </div>
+      {hasChildren && expanded && (
+        <ul id={treeDomId(node.id)} className="shelf-nav-tree" role="group">
           {node.children.map((child) => (
             <CategoryBranch
               key={child.id}
               node={child}
               courses={courses}
+              collapsedIds={collapsedIds}
+              activePathIds={activePathIds}
               selectedCategoryId={selectedCategoryId}
               onSelect={onSelect}
+              onToggle={onToggle}
+              onKeyDown={onKeyDown}
               depth={depth + 1}
             />
           ))}
