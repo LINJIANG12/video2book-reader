@@ -12,9 +12,10 @@
  *
  * 正文取数走回退链：jsDelivr → api contents → raw（每条都实测过可达性，见 docs/05）。
  */
-import { deriveCourses, parseRootReadme, toCourseSummary, type RootReadmeInfo, type TreeEntry } from './derive.ts'
+import { deriveCourses, parseCourseCatalog, parseRootReadme, toCourseSummary, type RootReadmeInfo, type TreeEntry } from './derive.ts'
 import type {
   ContentSource,
+  CourseCatalog,
   CourseDetail,
   CourseId,
   CourseSummary,
@@ -73,9 +74,9 @@ export function createGitHubSource(opts: GitHubSourceOptions): ContentSource {
   }
 
   async function loadFromTree(): Promise<ManifestCourse[]> {
-    const [treeRes, readmeInfo] = await Promise.all([
+    const [treeRes, catalog] = await Promise.all([
       fetch(`${API}/repos/${owner}/${repo}/git/trees/${ref}?recursive=1`, { headers: authHeaders({ accept: 'application/vnd.github+json' }) }),
-      fetchRootReadme(),
+      fetchCatalog(),
     ])
     if (!treeRes.ok) {
       // 403/429 基本都是未认证限流（60 次/小时/IP）。把原因说清楚，用户才知道该等一会儿还是换网络。
@@ -84,16 +85,26 @@ export function createGitHubSource(opts: GitHubSourceOptions): ContentSource {
     }
     const json = (await treeRes.json()) as { tree: TreeEntry[]; truncated?: boolean }
     if (json.truncated) throw new Error('文件树被截断，需要改为逐目录取树')
-    return deriveCourses(json.tree.filter((e) => e.type === 'blob'), readmeInfo)
+    const readmeInfo = await fetchRootReadme(catalog)
+    return deriveCourses(json.tree.filter((e) => e.type === 'blob'), readmeInfo, catalog)
   }
 
-  async function fetchRootReadme(): Promise<RootReadmeInfo | undefined> {
+  async function fetchCatalog(): Promise<CourseCatalog | undefined> {
+    const res = await fetch(`${API}/repos/${owner}/${repo}/contents/course_catalog.json?ref=${ref}`, {
+      headers: authHeaders({ accept: 'application/vnd.github.raw' }),
+    })
+    if (res.status === 404) return undefined
+    if (!res.ok) throw new Error(`读取 course_catalog.json 失败：HTTP ${res.status}`)
+    return parseCourseCatalog(await res.json())
+  }
+
+  async function fetchRootReadme(catalog?: CourseCatalog): Promise<RootReadmeInfo | undefined> {
     try {
       const res = await fetch(`${API}/repos/${owner}/${repo}/contents/README.md?ref=${ref}`, {
         headers: authHeaders({ accept: 'application/vnd.github.raw' }),
       })
       if (!res.ok) return undefined
-      return parseRootReadme(await res.text())
+      return parseRootReadme(await res.text(), catalog)
     } catch {
       return undefined // best-effort：失败只退化为目录名排序
     }

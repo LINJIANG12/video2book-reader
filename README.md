@@ -10,7 +10,7 @@
 > [![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-已部署上线-10b981?style=for-the-badge&logo=github&logoColor=white)](https://linjiang12.github.io/video2book-reader/)
 >
 > 纯静态版本已持续部署在 GitHub Pages：[**https://linjiang12.github.io/video2book-reader/**](https://linjiang12.github.io/video2book-reader/)  
-> 开箱即用，内置全库 16 门课程书架、Typora 标题自动多级编号、KaTeX 公式秒级渲染与多端全景自适应排版。
+> 开箱即用，内置全库 26 门课程书架、241 册教材、212 篇复习笔记与 1353 份逐字稿，Typora 标题自动多级编号、KaTeX 公式秒级渲染与多端全景自适应排版。
 
 ## 先读文档
 

@@ -30,7 +30,7 @@ const [owner, repo] = REPO.split('/')
 const CASES = [
   {
     name: '晚期批次 + 嵌套围栏泄漏（已知内容缺陷）',
-    path: 'pink老师-AI前端入门/textbooks/模块02_HTML5语义结构与Trae AI开发环境（P14-P23）_精读全书.md',
+    path: '计算机/前端/pink老师-AI前端入门/textbooks/模块02_HTML5语义结构与Trae AI开发环境（P14-P23）_精读全书.md',
     expectedChapters: 11,
     // 这一册的 markdown 示例里嵌了 html 示例，而 CommonMark **不支持嵌套围栏**：
     //   2702 ```markdown  ← 外层开
@@ -43,24 +43,24 @@ const CASES = [
   },
   {
     name: '围栏里有一整屏菜单示意图',
-    path: '黑马程序员-Python-AI/textbooks/模块09_数据容器：元组、集合、字典与容器选型对比_精读全书.md',
+    path: '计算机/编程语言/黑马程序员-Python-AI/textbooks/模块09_数据容器：元组、集合、字典与容器选型对比_精读全书.md',
     expectedChapters: 11,
     note: '围栏内有 6 行「##  购物车系统  ##」，绝不能算成章',
   },
   {
     name: '导读残缺（正文比导读多 3 章）',
-    path: '北京大学-变态心理学/textbooks/模块06_临床病例深度讨论与跨障碍机制研讨_精读全书.md',
+    path: '心理与哲学/心理学/变态心理学/北京大学-变态心理学/textbooks/模块06_临床病例深度讨论与跨障碍机制研讨_精读全书.md',
     expectedChapters: 6,
     note: '导读只列 3 条，但正文有 6 章 —— 切分以正文为准（已核实这 6 个都是真标题，不在代码块内）',
   },
   {
     name: '常规册（晚期格式，章头有 BLK）',
-    path: '南京大学-操作系统原理/textbooks/模块01_操作系统导论与 AI 时代的系统视角_精读全书.md',
+    path: '计算机/计算机基础/操作系统/南京大学-操作系统原理/textbooks/模块01_操作系统导论与 AI 时代的系统视角_精读全书.md',
     expectedChapters: 4,
   },
   {
     name: '公式定界符写错导致吞章（护栏回归）',
-    path: 'MySQL数据库入门到大牛/textbooks/模块18_范式理论、数据库设计与调优策略_精读全书.md',
+    path: '计算机/数据库/MySQL数据库入门到大牛/textbooks/模块18_范式理论、数据库设计与调优策略_精读全书.md',
     expectedChapters: 10,
     // 源文件里一块展示公式的收尾 `$$` 写在了行尾（1368 行 `eq 25.5$$`），
     // 按 micromark 的规则不构成收尾 —— 那块公式一路开到 3094 行，吞掉 1700 余行与 6 个章标题。

@@ -24,7 +24,7 @@ import { writeFileSync, mkdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
-const { deriveCourses, parseRootReadme } = await import('../packages/reader/src/content/derive.ts')
+const { deriveCourses, parseCourseCatalog, parseRootReadme } = await import('../packages/reader/src/content/derive.ts')
 
 /**
  * Node 的 fetch（undici）**默认不读 HTTPS_PROXY**，而 curl / 浏览器都读。
@@ -58,6 +58,16 @@ async function fetchTree() {
   return json.tree
 }
 
+async function fetchCourseCatalog() {
+  const res = await fetch(`${API}/contents/course_catalog.json?ref=${REF}`, { headers: authHeaders({ accept: 'application/vnd.github.raw' }) })
+  if (res.status === 404) return undefined
+  if (!res.ok) {
+    const body = await res.text().catch(() => '')
+    throw new Error(`取 course_catalog.json 失败：HTTP ${res.status} ${res.statusText}\n${body.slice(0, 400)}`)
+  }
+  return parseCourseCatalog(await res.json())
+}
+
 /**
  * 取根 README，交给 `parseRootReadme` 解析出策展顺序与展示文案。
  * best-effort：解析失败只影响卡片上的一行字与排序，不影响任何功能（docs/03 §2.3）。
@@ -65,11 +75,11 @@ async function fetchTree() {
  * 走 api.github.com 而不是 jsDelivr：实测本机 jsDelivr 需要代理、api 直连即可，
  * 构建期少一个网络依赖就少一类"在我这儿能跑、在 CI 上挂"的问题。
  */
-async function fetchRootReadme() {
+async function fetchRootReadme(catalog) {
   try {
     const res = await fetch(`${API}/contents/README.md?ref=${REF}`, { headers: authHeaders({ accept: 'application/vnd.github.raw' }) })
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    const readme = parseRootReadme(await res.text())
+    const readme = parseRootReadme(await res.text(), catalog)
     console.log(`[manifest] 从根 README 解析到 ${readme.order.length} 门课的策展顺序`)
     return readme
   } catch (e) {
@@ -84,20 +94,34 @@ async function main() {
   const files = tree.filter((e) => e.type === 'blob')
   console.log(`[manifest] 树上有 ${files.length} 个文件`)
 
-  const readme = files.some((f) => f.path === 'README.md') ? await fetchRootReadme() : undefined
-  const courses = deriveCourses(files, readme)
+  const catalog = await fetchCourseCatalog()
+  const readme = files.some((f) => f.path === 'README.md') ? await fetchRootReadme(catalog) : undefined
+  const courses = deriveCourses(files, readme, catalog)
+  const stats = {
+    courses: courses.length,
+    volumes: courses.reduce((n, c) => n + c.volumes.length, 0),
+    notes: courses.reduce((n, c) => n + c.notes.length, 0),
+    subtitles: courses.reduce((n, c) => n + c.subtitles.length, 0),
+    bytes: courses.reduce((n, c) => n + c.bytes, 0),
+  }
+
+  if (catalog) {
+    const catalogIds = Object.keys(catalog.courses)
+    const derivedIds = new Set(courses.map((course) => course.id))
+    const missing = catalogIds.filter((id) => !derivedIds.has(id))
+    if (missing.length) throw new Error(`catalog 中的课程没有对应产物：${missing.join('、')}`)
+    if (courses.length !== catalogIds.length || stats.volumes === 0 || stats.notes === 0) {
+      throw new Error(`catalog 派生结果异常：${stats.courses} 门 / ${stats.volumes} 册 / ${stats.notes} 篇 / ${stats.subtitles} 份逐字稿`)
+    }
+    console.log(`[manifest] catalog 课程 ${catalogIds.length} 门，物理路径映射通过`)
+  }
 
   const manifest = {
-    manifestVersion: 1,
+    manifestVersion: 2,
     generatedAt: new Date().toISOString(),
     repo: { owner: OWNER, name: NAME, ref: REF },
-    stats: {
-      courses: courses.length,
-      volumes: courses.reduce((n, c) => n + c.volumes.length, 0),
-      notes: courses.reduce((n, c) => n + c.notes.length, 0),
-      subtitles: courses.reduce((n, c) => n + c.subtitles.length, 0),
-      bytes: courses.reduce((n, c) => n + c.bytes, 0),
-    },
+    categories: catalog?.categories ?? [],
+    stats,
     /** 性能基准与验收用：文件树中 size 最大的那一册（docs/03 §10.1 要求取最大者，不写死册名） */
     largestVolume: courses
       .flatMap((c) => c.volumes.map((v) => ({ courseId: c.id, id: v.id, size: v.size })))
@@ -108,7 +132,7 @@ async function main() {
   mkdirSync(dirname(OUT), { recursive: true })
   writeFileSync(OUT, JSON.stringify(manifest, null, 2) + '\n', 'utf8')
 
-  const { stats, largestVolume } = manifest
+  const { largestVolume } = manifest
   console.log(`[manifest] 写入 ${OUT}`)
   console.log(
     `[manifest] ${stats.courses} 门课 / ${stats.volumes} 册 / ${stats.notes} 篇笔记 / ${stats.subtitles} 份逐字稿 / ${(stats.bytes / 1024 / 1024).toFixed(1)} MB 文本`,

@@ -10,7 +10,26 @@ import type { ReactNode } from 'react'
 export type CourseId = string
 export type DocumentId = string
 
-/** volume = 模块全书（册）；note = 复习笔记；subtitle = 逐字稿（.txt，无阅读视图） */
+export type CourseCatalogCategory = {
+  id: string
+  name: string
+}
+
+export type CourseCatalogEntry = {
+  title: string
+  direction: string
+  publishPath: string
+  categoryPaths: string[]
+  tags: string[]
+}
+
+export type CourseCatalog = {
+  schemaVersion: number
+  categories: CourseCatalogCategory[]
+  courses: Record<CourseId, CourseCatalogEntry>
+}
+
+/** volume = 模块全书（册）；note = 复习笔记；subtitle = 逐字稿（.txt 或块级 .md，无阅读视图） */
 export type DocumentKind = 'volume' | 'note' | 'subtitle'
 
 export type DocumentSummary = {
@@ -27,6 +46,11 @@ export type CourseSummary = {
   title: string
   /** 展示性文案，best-effort，可为空（docs/03 §2.3） */
   direction?: string
+  /** 仓库内物理课程目录；有 catalog 时提供 */
+  publishPath?: string
+  /** 逻辑分类路径；交叉分类可重复出现在不同分类下 */
+  categoryPaths?: string[]
+  tags?: string[]
   volumeCount: number
   noteCount: number
   /** 逐字稿数量。列表只在 loadCourse 里给（书架不需要） */
@@ -44,9 +68,14 @@ export type ManifestCourse = {
   id: CourseId
   title: string
   direction: string
+  /** 仓库内物理课程目录，catalog v2 提供 */
+  publishPath: string
+  /** 逻辑主分类与交叉分类路径 */
+  categoryPaths: string[]
+  tags: string[]
   volumes: DocumentSummary[]
   notes: DocumentSummary[]
-  /** 逐字稿：`P01_01. xxx_clean.txt`。v1 只列出与下载，不提供阅读视图（docs/00 §11 D2） */
+  /** 逐字稿：`PXX_*.txt` 或 `BLKxx_*.md`。只列出与下载，不提供阅读视图 */
   subtitles: DocumentSummary[]
   /** 该课程全部产件的字节数（册 + 笔记 + 逐字稿） */
   bytes: number
@@ -56,6 +85,7 @@ export type Manifest = {
   manifestVersion: number
   generatedAt: string
   repo: { owner: string; name: string; ref: string }
+  categories: CourseCatalogCategory[]
   stats: { courses: number; volumes: number; notes: number; subtitles: number; bytes: number }
   largestVolume?: { courseId: CourseId; id: DocumentId; size: number }
   courses: ManifestCourse[]

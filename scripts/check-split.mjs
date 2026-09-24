@@ -25,22 +25,28 @@ if (!existsSync(dir)) {
   process.exit(2)
 }
 
-/** 收集所有 textbooks/*.md 与 notes/*.md */
+/** 收集所有分类目录下的 textbooks/*.md 与 notes/*.md */
 function collectDocuments(root) {
   const out = []
-  for (const entry of readdirSync(root)) {
-    if (entry.startsWith('.')) continue
-    const courseDir = join(root, entry)
-    if (!statSync(courseDir).isDirectory()) continue
-    for (const sub of ['textbooks', 'notes']) {
-      const subDir = join(courseDir, sub)
-      if (!existsSync(subDir)) continue
-      for (const file of readdirSync(subDir)) {
-        if (!file.endsWith('.md')) continue
-        out.push({ course: entry, sub, path: join(subDir, file), kind: sub === 'textbooks' ? 'volume' : 'note' })
+  const walk = (dir, parts = []) => {
+    for (const entry of readdirSync(dir)) {
+      if (entry.startsWith('.')) continue
+      const path = join(dir, entry)
+      if (statSync(path).isDirectory()) {
+        walk(path, [...parts, entry])
+        continue
       }
+      if (!entry.endsWith('.md') || !['textbooks', 'notes'].includes(parts.at(-1))) continue
+      const sub = parts.at(-1)
+      out.push({
+        course: parts.slice(0, -1).join('/'),
+        sub,
+        path,
+        kind: sub === 'textbooks' ? 'volume' : 'note',
+      })
     }
   }
+  walk(root)
   return out
 }
 
@@ -58,6 +64,15 @@ const notes = []
 function norm(s) {
   return s
     .replace(/[\u200B-\u200D\uFEFF\u00A0]/g, '')
+    .replace(/\$\\?([A-Za-z]+)\$/g, '$1')
+    .replace(/\\varepsilon/g, 'epsilon')
+    .replace(/varepsilon/g, 'epsilon')
+    .replace(/\\epsilon/g, 'epsilon')
+    .replace(/\\([A-Za-z]+)/g, '$1')
+    .replace(/\$/g, '')
+    .replace(/[‐‑‒–—−]/g, '-')
+    .replace(/-{2,}/g, '-')
+    .replace(/[（(]?P\d+(?:[-–—−]P?\d+)?[）)]?/gi, '')
     .replace(/^\s*\d+[.、]\s*/, '')
     .replace(/^\s*P?\d+[-–—]?/, '')
     .replace(/[\s　:：、，,。.()（）【】\[\]"'`]/g, '')

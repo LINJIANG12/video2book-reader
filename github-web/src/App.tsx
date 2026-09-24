@@ -15,6 +15,7 @@ import {
   Bookshelf,
   Reader,
   createGitHubSource,
+  courseIdFromDocumentId,
   type ContentSource,
   type CourseDetail,
   type DocumentSummary,
@@ -76,6 +77,7 @@ export function App() {
   const [theme, setTheme] = useState<Theme>(getInitialTheme)
   const [readingWidth, setReadingWidth] = useState<ReadingWidth>(getInitialWidth)
   const apiRef = useRef<ReaderApi | null>(null)
+  const readerCourseId = courseIdFromDocumentId(route.view === 'reader' ? route.documentId : '') ?? ''
 
   const toggleWidth = useCallback(() => {
     setReadingWidth((prev) => {
@@ -131,7 +133,8 @@ export function App() {
 
   // 只在内存里记「这册读过」，用于书架进度与课程页高亮
   const onChapterEnter = useCallback((documentId: string) => {
-    const courseId = documentId.split('/')[0]
+    const courseId = courseIdFromDocumentId(documentId)
+    if (!courseId) return
     setReadVolumes((prev) => {
       const set = new Set(prev[courseId] ?? [])
       if (set.has(documentId)) return prev
@@ -176,9 +179,13 @@ export function App() {
       setDocTitle('')
       return
     }
-    const courseId = route.documentId.split('/')[0]
+    const courseId = readerCourseId
     const documentId = route.documentId
     let cancelled = false
+    if (!courseId) {
+      setDocTitle(fileNameOf(documentId))
+      return () => undefined
+    }
     contentSource
       .loadCourse(courseId)
       .then((c) => {
@@ -247,10 +254,10 @@ export function App() {
                 <button
                   type="button"
                   className="topbar-crumb-btn"
-                  title={route.documentId.split('/')[0]}
-                  onClick={() => go({ view: 'course', courseId: route.documentId.split('/')[0], transcripts: false })}
+                  title={readerCourseId}
+                  onClick={() => go({ view: 'course', courseId: readerCourseId, transcripts: false })}
                 >
-                  {route.documentId.split('/')[0]}
+                  {readerCourseId}
                 </button>
                 <span className="topbar-sep" aria-hidden="true">/</span>
                 <span className="topbar-crumb-active" title={docTitle || fileNameOf(route.documentId)}>

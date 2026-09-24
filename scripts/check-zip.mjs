@@ -26,9 +26,9 @@ const enc = new TextEncoder()
 
 /** 用例刻意包含：中文名、嵌套目录、前缀相同的名字、空文件、大文件（跨 deflate 块）、重复内容 */
 const CASES = [
-  { name: '黑马程序员-Python-AI/textbooks/模块01_Python 与 AI 时代导学_精读全书.md', text: '# 标题\n\n正文含公式 $E=mc^2$ 与代码。\n' },
-  { name: '黑马程序员-Python-AI/notes/笔记01_知识体系_笔记.md', text: '复习笔记\n' },
-  { name: '黑马程序员-Python-AI/subtitles/P01_01. Python+AI课程导学_clean.txt', text: '逐字稿内容\n'.repeat(50) },
+  { name: '计算机/编程语言/黑马程序员-Python-AI/textbooks/模块01_Python 与 AI 时代导学_精读全书.md', text: '# 标题\n\n正文含公式 $E=mc^2$ 与代码。\n' },
+  { name: '计算机/编程语言/黑马程序员-Python-AI/notes/笔记01_知识体系_笔记.md', text: '复习笔记\n' },
+  { name: '计算机/编程语言/黑马程序员-Python-AI/subtitles/P01_01. Python+AI课程导学_clean.txt', text: '逐字稿内容\n'.repeat(50) },
   { name: '空文件.txt', text: '' },
   { name: '重复内容/a.md', text: 'ab'.repeat(5000) }, // 高度可压缩：走 deflate 分支
   { name: '不可压缩.bin', text: Array.from({ length: 3000 }, (_, i) => String.fromCharCode(i % 256)).join('') },
